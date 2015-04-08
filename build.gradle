@@ -33,14 +33,18 @@ sourceSets {
   
   test {
     java {
-      srcDirs 'src', 'tests'
+      srcDirs 'tests'
     }
   }
 //  classpath = classpath.add (fileTree(ideaSdkPath()).include("lib/*.jar").files)
 }
 
-sourceCompatibility = 1.6
-targetCompatibility = 1.6
+test {
+  maxHeapSize = '-Xmx512m' 
+  minHeapSize = '-Xms256m'
+  enableAssertions = true
+  jvmArgs '-XX:MaxPermSize=250m'
+}
 
 task prepareIdeaSdk(type: Copy, dependsOn: configurations.idea) {
   def source = configurations.idea.singleFile
