@@ -1,9 +1,3 @@
-buildscript {
-  repositories {
-    mavenCentral()
-  }
-}
-
 repositories {
   maven { url "https://www.jetbrains.com/intellij-repository/releases" }
   mavenCentral()
@@ -42,7 +36,7 @@ sourceSets {
       srcDirs 'src', 'tests'
     }
   }
-//  classpath = classpath. (fileTree(ideaSdkPath()).include("lib/*.jar").files)
+//  classpath = classpath.add (fileTree(ideaSdkPath()).include("lib/*.jar").files)
 }
 
 sourceCompatibility = 1.6
