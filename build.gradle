@@ -64,13 +64,26 @@ private String ideaSdkPath() {
   source.parent + '/' + source.name - '.zip'
 }
 
-apply plugin: 'java-library-distribution'
+apply plugin: 'distribution'
 
 dependencies {
   compile project(':utils'), project(':google-app-engine'), project(':google-app-engine-yaml')
 }
 
-distributions.main.baseName = 'Go'
+distributions {
+  main {
+    baseName = 'Go'
+    contents {
+      allprojects.each { project ->
+        project.tasks.withType(Jar).each { archiveTask ->
+          into('lib') {
+            from archiveTask.archivePath
+          }
+        }
+      }
+    }
+  }
+}
 
 test {
   maxHeapSize = '512m'
