@@ -1,6 +1,4 @@
 // todo google-app-engine-yaml.jar invalid
-// exclude idea libs from zip and libraries 
-
 allprojects {
   apply plugin: 'java'
   jar.archiveName = "${project.name}.jar"
@@ -12,12 +10,7 @@ allprojects {
 
   configurations {
     idea
-    provided {
-        dependencies.all { dep ->
-            configurations.default.exclude group: dep.group, module: dep.name
-        }
-    }
-    compile.extendsFrom provided
+    provided
   }
 
   dependencies {
@@ -26,6 +19,28 @@ allprojects {
     provided fileTree(ideaSdkPath()).include("plugins/coverage/lib/*.jar")
     testCompile fileTree("${System.properties['java.home']}/../lib").include('*tools.jar')
   }
+
+  sourceSets {
+    main {
+      java {
+        srcDirs 'src', 'gen'
+      }
+      resources {
+        srcDirs 'resources'
+      }
+      compileClasspath += configurations.provided
+      runtimeClasspath += configurations.provided
+    }
+
+    test {
+      java {
+        srcDirs 'tests'
+      }
+      compileClasspath += configurations.provided
+      runtimeClasspath += configurations.provided
+    }
+  }
+
 
   task prepareIdeaSdk(type: Copy, dependsOn: configurations.idea) {
     def source = configurations.idea.singleFile
@@ -56,23 +71,6 @@ dependencies {
 }
 
 distributions.main.baseName = 'Go'
-
-sourceSets {
-  main {
-    java {
-      srcDirs 'src', 'gen'
-    }
-    resources {
-      srcDirs 'resources'
-    }
-  }
-
-  test {
-    java {
-      srcDirs 'tests'
-    }
-  }
-}
 
 test {
   maxHeapSize = '512m'
