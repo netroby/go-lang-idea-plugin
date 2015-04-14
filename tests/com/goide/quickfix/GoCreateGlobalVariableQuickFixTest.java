@@ -11,8 +11,8 @@ public class GoCreateGlobalVariableQuickFixTest extends GoQuickFixTestBase {
   }
 
   @Override
-  protected String getTestDataPath() {
-    return "testData/quickfixes/global-variable/";
+  protected String getBasePath() {
+    return "quickfixes/global-variable/";
   }
 
   public void testSimple() { doTest("Create global variable 'a'"); }

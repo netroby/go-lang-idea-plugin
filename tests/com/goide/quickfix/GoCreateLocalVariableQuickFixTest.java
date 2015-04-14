@@ -11,8 +11,8 @@ public class GoCreateLocalVariableQuickFixTest extends GoQuickFixTestBase {
   }
 
   @Override
-  protected String getTestDataPath() {
-    return "testData/quickfixes/local-variable/";
+  protected String getBasePath() {
+    return "quickfixes/local-variable/";
   }
 
   public void testSimple() { doTest("Create local variable 'a'"); }

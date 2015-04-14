@@ -14,8 +14,8 @@ public class GoCreateTypeQuickFixTest extends GoQuickFixTestBase {
   }
 
   @Override
-  protected String getTestDataPath() {
-    return "testData/quickfixes/create-type/";
+  protected String getBasePath() {
+    return "quickfixes/create-type/";
   }
 
   public void testSimple() { doTest("Create type 'A'"); }

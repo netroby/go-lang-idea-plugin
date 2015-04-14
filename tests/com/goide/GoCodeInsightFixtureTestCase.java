@@ -35,7 +35,7 @@ import java.io.IOException;
 
 abstract public class GoCodeInsightFixtureTestCase extends LightPlatformCodeInsightFixtureTestCase {
   @Override
-  protected String getTestDataPath() {
+  protected final String getTestDataPath() {
     return new File("testData/" + getBasePath()).getAbsolutePath();
   }
 

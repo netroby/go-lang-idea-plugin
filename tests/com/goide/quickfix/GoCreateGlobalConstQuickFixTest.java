@@ -11,8 +11,8 @@ public class GoCreateGlobalConstQuickFixTest extends GoQuickFixTestBase {
   }
 
   @Override
-  protected String getTestDataPath() {
-    return "testData/quickfixes/global-constant/";
+  protected String getBasePath() {
+    return "quickfixes/global-constant/";
   }
 
   public void testSimple() { doTest("Create global constant 'a'"); }
