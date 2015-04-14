@@ -1,5 +1,6 @@
 plugins {
   id 'org.jetbrains.intellij' version "0.0.3"
+  id "de.undercouch.download" version "1.2"
 }
 
 version = '1.0'
@@ -29,14 +30,6 @@ dependencies {
   compile project(':utils'), project(':google-app-engine'), project(':google-app-engine-yaml')
 }
 
-task performanceTest(type: Test) {
-  useJUnit {
-    includeCategories 'com.goide.categories.Performance'
-    reports.html.destination = "$buildDir/reports/performanceTests"
-  }
-}
-check.dependsOn performanceTest
-
 test {
   maxHeapSize = '512m'
   minHeapSize = '256m'
@@ -46,4 +39,41 @@ test {
   useJUnit {
     excludeCategories 'com.goide.categories.Performance'
   }
+}
+
+task performanceTest(type: Test) {
+  useJUnit {
+    includeCategories 'com.goide.categories.Performance'
+    reports.html.destination = "$buildDir/reports/performanceTests"
+  }
+}
+check.dependsOn performanceTest
+
+task preparePerformanceTestData() {
+  downloadAndUnzip('https://storage.googleapis.com/golang/go1.4.2.src.tar.gz', 'go', 'go')
+  downloadAndUnzip('https://github.com/docker/docker/archive/v1.5.0.tar.gz', 'docker-1.5.0', 'docker')
+}
+performanceTest.dependsOn preparePerformanceTestData
+
+private void downloadAndUnzip(url, sourceDir, targetDir) {
+  def testDataPath = "${projectDir}/testData/performance/"
+  def markerFile = file("${testDataPath}/${targetDir}/markerFile")
+  def tmpPath = "${testDataPath}/tmp/"
+  def tar = file("${tmpPath}/${targetDir}.tar.gz")
+  if (!markerFile.exists()) {
+    download {
+      src url
+      dest tar
+    }
+    copy {
+      from tarTree(tar)
+      into tmpPath
+    }
+    copy {
+      from "${tmpPath}/${sourceDir}"
+      into "${testDataPath}/${targetDir}" 
+    }
+    markerFile.createNewFile()
+  }
+  delete file(tmpPath)
 }
