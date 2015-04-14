@@ -51,7 +51,7 @@ public class GoPerformanceTest extends GoCodeInsightFixtureTestCase {
     doInspectionTest(new GoUnresolvedReferenceInspection(), (int)TimeUnit.MINUTES.toMillis(4));
   }
 
-  public void testUnusedFunction() {
+  public void _testUnusedFunction() {
     doInspectionTest(new GoUnusedFunctionInspection(), (int)TimeUnit.MINUTES.toMillis(3));
   }
 
