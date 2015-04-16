@@ -39,6 +39,9 @@ test {
   useJUnit {
     excludeCategories 'com.goide.categories.Performance'
   }
+  testLogging {
+    exceptionFormat = 'full'
+  }
 }
 
 task performanceTest(type: Test) {
@@ -71,7 +74,7 @@ private void downloadAndUnzip(url, sourceDir, targetDir) {
     }
     copy {
       from "${tmpPath}/${sourceDir}"
-      into "${testDataPath}/${targetDir}" 
+      into "${testDataPath}/${targetDir}"
     }
     markerFile.createNewFile()
   }
