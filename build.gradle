@@ -49,6 +49,9 @@ task performanceTest(type: Test) {
     includeCategories 'com.goide.categories.Performance'
     reports.html.destination = "$buildDir/reports/performanceTests"
   }
+  testLogging {
+    exceptionFormat = 'full'
+  }
 }
 check.dependsOn performanceTest
 
