@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.goide.debugger.ideagdb.run;
+package com.goide.debugger.delve.run;
 
-import com.goide.debugger.gdb.Gdb;
-import com.goide.debugger.ideagdb.debug.GdbDebugProcess;
+import com.goide.debugger.delve.debug.DelveDebugProcess;
+import com.goide.debugger.delve.dlv.Delve;
 import com.goide.sdk.GoSdkService;
 import com.intellij.execution.ExecutionException;
 import com.intellij.execution.ExecutionResult;
@@ -36,22 +36,21 @@ import com.intellij.xdebugger.XDebugProcess;
 import com.intellij.xdebugger.XDebugProcessStarter;
 import com.intellij.xdebugger.XDebugSession;
 import com.intellij.xdebugger.XDebuggerManager;
+import com.intellij.xdebugger.impl.XDebugSessionImpl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class GdbRunner extends DefaultProgramRunner {
-
-  public static final String SET_AUTO_LOAD_SAFE_PATH = "set auto-load safe-path ";
+public class DelveRunner extends DefaultProgramRunner {
 
   @NotNull
   @Override
   public String getRunnerId() {
-    return "GdbRunner";
+    return "DelveRunner";
   }
 
   @Override
   public boolean canRun(@NotNull String executorId, @NotNull RunProfile profile) {
-    return DefaultDebugExecutor.EXECUTOR_ID.equals(executorId) && profile instanceof GdbRunConfiguration;
+    return DefaultDebugExecutor.EXECUTOR_ID.equals(executorId) && profile instanceof DelveRunConfiguration;
   }
 
   @Override
@@ -71,10 +70,9 @@ public class GdbRunner extends DefaultProgramRunner {
       @NotNull
       @Override
       public XDebugProcess start(@NotNull XDebugSession session) throws ExecutionException {
-        //session.setAutoInitBreakpoints(false); // todo[vova]: ?
-        final ExecutionResult result = state.execute(executor, GdbRunner.this);
+        final ExecutionResult result = state.execute(executor, DelveRunner.this);
         assert result != null;
-        return new GdbDebugProcess(session, (GdbExecutionResult)result);
+        return new DelveDebugProcess(session, (DelveExecutionResult)result);
       }
     });
 
@@ -85,15 +83,10 @@ public class GdbRunner extends DefaultProgramRunner {
       return null;
     }
 
-    GdbDebugProcess debugProcess = ((GdbDebugProcess)debugSession.getDebugProcess());
-
-    Gdb gdb = debugProcess.getGdb();
-    gdb.sendCommand(SET_AUTO_LOAD_SAFE_PATH + sdkHomePath);
-    if (SystemInfo.isLinux) gdb.sendCommand(SET_AUTO_LOAD_SAFE_PATH + "/usr/share/go");
+    DelveDebugProcess debugProcess = ((DelveDebugProcess)debugSession.getDebugProcess());
+    Delve delve = debugProcess.getDelve();
     assert result != null;
-    gdb.sendCommand("file " + ((GdbExecutionResult)result).getConfiguration().APP_PATH);
-    debugSession.initBreakpoints();
-    gdb.sendCommand("run > /dev/null"); // todo: collect all output to file and show in the console
+    //delve.sendCommand("continue");
     return debugSession.getRunContentDescriptor();
   }
 }

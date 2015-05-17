@@ -162,11 +162,15 @@
 
     <!-- debugger -->
     <xdebugger.breakpointType implementation="com.goide.debugger.ideagdb.debug.breakpoints.GdbBreakpointType"/>
+    <xdebugger.breakpointType implementation="com.goide.debugger.delve.debug.breakpoints.DelveBreakpointType"/>
 
     <!-- temporary debugger configurations -->
     <!-- todo: move it to run/test configurations -->
     <configurationType implementation="com.goide.debugger.ideagdb.run.GdbRunConfigurationType"/>
     <programRunner implementation="com.goide.debugger.ideagdb.run.GdbRunner"/>
+
+    <configurationType implementation="com.goide.debugger.delve.run.DelveRunConfigurationType"/>
+    <programRunner implementation="com.goide.debugger.delve.run.DelveRunner"/>
 
     <checkinHandlerFactory implementation="com.goide.actions.fmt.GoFmtCheckinFactory" order="last"/>
 
