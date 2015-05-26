@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov, Mihai Toader
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 
 package com.goide.runconfig.testing.ui;
 
-import com.goide.completion.GoImportPathsCompletionProvider;
+import com.goide.runconfig.GoRunUtil;
 import com.goide.runconfig.testing.GoTestRunConfiguration;
 import com.goide.runconfig.ui.GoCommonSettingsPanel;
-import com.goide.util.GoUtil;
-import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.options.ConfigurationException;
 import com.intellij.openapi.options.SettingsEditor;
 import com.intellij.openapi.project.Project;
@@ -28,7 +27,7 @@ import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.ui.EditorTextField;
 import com.intellij.ui.ListCellRendererWrapper;
-import com.intellij.util.TextFieldCompletionProvider;
+import com.intellij.util.Producer;
 import org.intellij.lang.regexp.RegExpLanguage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -120,15 +119,13 @@ public class GoTestRunConfigurationEditorForm extends SettingsEditor<GoTestRunCo
 
   private void createUIComponents() {
     myPatternEditor = new EditorTextField("", null, RegExpLanguage.INSTANCE.getAssociatedFileType());
-    myPackageField = new TextFieldCompletionProvider() {
+    myPackageField = new GoPackageFieldCompletionProvider(new Producer<Module>() {
+      @Nullable
       @Override
-      protected void addCompletionVariants(@NotNull String text,
-                                           int offset,
-                                           @NotNull String prefix,
-                                           @NotNull final CompletionResultSet result) {
-        GoImportPathsCompletionProvider.addCompletions(result, myCommonSettingsPanel.getSelectedModule());
+      public Module produce() {
+        return myCommonSettingsPanel != null ? myCommonSettingsPanel.getSelectedModule() : null;
       }
-    }.createEditor(myProject);
+    }).createEditor(myProject);
   }
 
   @Nullable
@@ -145,8 +142,8 @@ public class GoTestRunConfigurationEditorForm extends SettingsEditor<GoTestRunCo
   }
 
   private void installFileChoosers(@NotNull Project project) {
-    GoUtil.installFileChooser(project, myFileField, false);
-    GoUtil.installFileChooser(project, myDirectoryField, true);
+    GoRunUtil.installFileChooser(project, myFileField, false);
+    GoRunUtil.installFileChooser(project, myDirectoryField, true);
   }
 
   private void installTestKindComboBox() {
@@ -157,7 +154,7 @@ public class GoTestRunConfigurationEditorForm extends SettingsEditor<GoTestRunCo
     }
     myTestKindComboBox.addActionListener(new ActionListener() {
       @Override
-      public void actionPerformed(ActionEvent e) {
+      public void actionPerformed(@NotNull ActionEvent e) {
         onTestKindChanged();
       }
     });

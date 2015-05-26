@@ -29,26 +29,8 @@ public class GoTypeImpl extends GoStubbedElementImpl<GoTypeStub> implements GoTy
 
   @Override
   @Nullable
-  public GoType getType() {
-    return findChildByClass(GoType.class, GoTypeStub.class);
-  }
-
-  @Override
-  @Nullable
   public GoTypeReferenceExpression getTypeReferenceExpression() {
     return findChildByClass(GoTypeReferenceExpression.class);
-  }
-
-  @Override
-  @Nullable
-  public PsiElement getLparen() {
-    return findChildByType(LPAREN);
-  }
-
-  @Override
-  @Nullable
-  public PsiElement getRparen() {
-    return findChildByType(RPAREN);
   }
 
 }

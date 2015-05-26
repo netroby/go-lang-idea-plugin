@@ -18,6 +18,7 @@ package com.goide;
 
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
+import com.intellij.testFramework.LightProjectDescriptor;
 import com.intellij.usageView.UsageInfo;
 import com.intellij.util.Function;
 import com.intellij.util.containers.ContainerUtil;
@@ -27,7 +28,7 @@ import java.util.List;
 
 import static com.intellij.util.containers.ContainerUtil.newArrayList;
 
-public class GoVarUsageTest extends GoCodeInsightFixtureTestCase {
+public class GoFindUsageTest extends GoCodeInsightFixtureTestCase {
   private static final String USAGE = "/*usage*/";
 
   private void doTest(String text) {
@@ -45,7 +46,7 @@ public class GoVarUsageTest extends GoCodeInsightFixtureTestCase {
   }
 
   @NotNull
-  private static List<Integer> allOccurrences(@NotNull String text, String what) {
+  private static List<Integer> allOccurrences(@NotNull String text, @NotNull String what) {
     List<Integer> list = newArrayList();
     int index = text.indexOf(what);
     while (index >= 0) {
@@ -53,6 +54,16 @@ public class GoVarUsageTest extends GoCodeInsightFixtureTestCase {
       index = text.indexOf(what, index + 1);
     }
     return list;
+  }
+
+  public void testBuiltinHighlighting() {
+    myFixture.configureByText("a.go", "package main; func bar() i<caret>nt {}");
+    assertSize(1, myFixture.findUsages(myFixture.getElementAtCaret()));
+  }
+
+  @Override
+  protected LightProjectDescriptor getProjectDescriptor() {
+    return createMockProjectDescriptor();
   }
 
   public void testOverride() {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -73,8 +73,11 @@ public class GoBuildingRunner extends AsyncGenericProgramRunner {
 
     final AsyncPromise<RunProfileStarter> promise = new AsyncPromise<RunProfileStarter>();
     FileDocumentManager.getInstance().saveAllDocuments();
+    
     ((GoApplicationRunningState)state).createCommonExecutor()
-      .withParameters("build", "-o", tmpFile.getAbsolutePath(), ((GoApplicationRunningState)state).getMainFilePath())
+      .withParameters("build")
+      .withParameterString(((GoApplicationRunningState)state).getGoBuildParams())
+      .withParameters("-o", tmpFile.getAbsolutePath(), ((GoApplicationRunningState)state).getTarget())
       .showNotifications(true)
       .showOutputOnError()
       .withPresentableName("go build")

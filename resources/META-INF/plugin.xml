@@ -1,5 +1,5 @@
 <!--
-  ~ Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
+  ~ Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -61,6 +61,7 @@
     <stubIndex implementation="com.goide.stubs.index.GoPackagesIndex"/>
     <stubIndex implementation="com.goide.stubs.index.GoMethodIndex"/>
     <stubIndex implementation="com.goide.stubs.index.GoMethodFingerprintIndex"/>
+    <stubElementTypeHolder class="com.goide.GoTypes"/>
 
     <internalFileTemplate name="Go Application"/>
     <internalFileTemplate name="Go File"/>
@@ -71,6 +72,8 @@
     <moduleService serviceImplementation="com.goide.project.GoModuleLibrariesService"/>
     <projectConfigurable groupId="language" provider="com.goide.configuration.GoConfigurableProvider" dynamic="true" 
                          bundle="do.not.touch.this.attribute" />
+
+    <projectService serviceImplementation="com.goide.project.GoBuildTargetSettings"/>
     
     <defaultLiveTemplatesProvider implementation="com.goide.template.GoLiveTemplatesProvider"/>
     <liveTemplateContext implementation="com.goide.template.GoEverywhereContextType"/>
@@ -117,6 +120,7 @@
     <lang.smartEnterProcessor language="go" implementationClass="com.goide.editor.smart.GoSmartEnterProcessor"/>
     <highlightUsagesHandlerFactory implementation="com.goide.highlighting.GoHighlightExitPointsHandlerFactory"/>
     <codeInsight.lineMarkerProvider language="go" implementationClass="com.goide.editor.marker.GoMethodSeparatorProvider"/>
+    <analyzeStacktraceFilter implementation="com.goide.runconfig.GoConsoleFilter"/>
 
     <!--formatter-->
     <lang.formatter language="go" implementationClass="com.goide.formatter.GoFormattingModelBuilder"/>
@@ -162,6 +166,7 @@
 
     <checkinHandlerFactory implementation="com.goide.actions.fmt.GoFmtCheckinFactory" order="last"/>
     
+    <defaultHighlightingSettingProvider implementation="com.goide.highlighting.GoDefaultHighlightingSettingProvider"/>
     <lang.inspectionSuppressor language="go" implementationClass="com.goide.inspections.suppression.GoInspectionSuppressor"/>
     
     <localInspection language="go" displayName="Unresolved reference inspection"
@@ -188,6 +193,9 @@
     <localInspection language="go" displayName="Duplicate function"
                      groupName="Go" enabledByDefault="true" level="ERROR"
                      implementationClass="com.goide.inspections.GoDuplicateFunctionInspection"/>
+    <localInspection language="go" displayName="Duplicate method"
+                     groupName="Go" enabledByDefault="true" level="ERROR"
+                     implementationClass="com.goide.inspections.GoDuplicateMethodInspection"/>
     <localInspection language="go" displayName="Duplicate argument"
                      groupName="Go" enabledByDefault="true" level="ERROR" 
                      implementationClass="com.goide.inspections.GoDuplicateArgumentInspection"/>

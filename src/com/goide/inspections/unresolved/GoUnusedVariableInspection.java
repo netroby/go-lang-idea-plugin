@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package com.goide.inspections.unresolved;
 
 import com.goide.inspections.GoInspectionBase;
+import com.goide.inspections.GoRenameToBlankQuickFix;
 import com.goide.psi.*;
 import com.intellij.codeInspection.LocalInspectionToolSession;
 import com.intellij.codeInspection.ProblemHighlightType;
@@ -29,7 +30,6 @@ import com.intellij.util.Query;
 import org.jetbrains.annotations.NotNull;
 
 public class GoUnusedVariableInspection extends GoInspectionBase {
-
   @NotNull
   @Override
   protected GoVisitor buildGoVisitor(@NotNull final ProblemsHolder holder,
@@ -60,11 +60,12 @@ public class GoUnusedVariableInspection extends GoInspectionBase {
           boolean globalVar = decl != null && decl.getParent() instanceof GoFile;
           if (globalVar) {
             if (!checkGlobal()) return;
-            holder.registerProblem(o, "Unused variable " + "'" + o.getText() + "'", ProblemHighlightType.LIKE_UNUSED_SYMBOL);
+            holder.registerProblem(o, "Unused variable " + "'" + o.getName() + "'", ProblemHighlightType.LIKE_UNUSED_SYMBOL);
           }
           else {
             if (checkGlobal()) return;
-            holder.registerProblem(o, "Unused variable " + "'" + o.getText() + "'", ProblemHighlightType.GENERIC_ERROR_OR_WARNING);
+            holder.registerProblem(o, "Unused variable " + "'" + o.getName() + "'", ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
+                                   new GoRenameToBlankQuickFix(o));
           }
         }
       }

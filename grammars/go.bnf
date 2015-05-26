@@ -109,7 +109,8 @@ ImportSpec ::= [ '.' | identifier ] ImportString {
 }
 ImportString ::= string | raw_string {methods=[getReferences resolve getPath getPathTextRange]}
 
-Type ::= TypeName | TypeLit | '(' Type ')' {stubClass="com.goide.stubs.GoTypeStub"}
+Type ::= TypeName | TypeLit | ParType {stubClass="com.goide.stubs.GoTypeStub"}
+ParType ::= '(' Type ')'
 private TypeName ::= TypeReferenceExpression QualifiedTypeReferenceExpression?
 TypeReferenceExpression ::= identifier { methods=[getReference getQualifier] }
 left QualifiedTypeReferenceExpression ::= '.' identifier {elementType=TypeReferenceExpression}
@@ -243,7 +244,7 @@ TypeDeclaration ::= 'type' ( TypeSpec | '(' TypeSpecs? ')' ) {pin(".*")=1}
 private TypeSpecs ::= TypeSpec (semi TypeSpec)* semi? {pin=1}
 TypeSpec ::= identifier Type {
   pin=1
-  methods=[getGoType getMethods]
+  methods=[getGoType getMethods shouldGoDeeper]
   stubClass="com.goide.stubs.GoTypeSpecStub"
 }
 

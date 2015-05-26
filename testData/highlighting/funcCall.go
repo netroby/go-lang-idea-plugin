@@ -135,3 +135,36 @@ func demo23(a *d, err error) string {
 func <warning>main23</warning>() {
     _ = demo23(de("1").Func())
 }
+
+func foo_m(_ int) {
+}
+
+func bar_m() (int, int) {
+	return 0, 0
+}
+
+func <warning>main127</warning>() {
+	foo_m<error>(bar_m())</error>
+}
+
+type AnInterface interface {
+	MyMethod() error
+}
+
+type bar struct {}
+
+func (*bar) MyMethod() error {
+	return nil
+}
+
+type mystruct struct {}
+
+func (x *mystruct) getAnInterface() AnInterface {
+	return &bar{}
+}
+
+var getAnInterface = (*mystruct).getAnInterface
+
+func _() {
+	fmt.Println(getAnInterface(&mystruct{}).MyMethod())
+}

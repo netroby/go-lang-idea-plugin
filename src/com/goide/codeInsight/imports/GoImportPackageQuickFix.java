@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov, Mihai Toader
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package com.goide.codeInsight.imports;
 
-import com.goide.GoConstants;
 import com.goide.GoIcons;
+import com.goide.completion.GoCompletionUtil;
 import com.goide.psi.GoFile;
 import com.goide.psi.GoReferenceExpression;
 import com.goide.psi.GoTypeReferenceExpression;
@@ -37,7 +37,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.util.Comparing;
 import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiReference;
@@ -78,7 +77,7 @@ public class GoImportPackageQuickFix extends LocalQuickFixAndIntentionActionOnPs
     if (element == null || !element.isValid()) {
       return false;
     }
-    
+
     if (myReference.resolve() != null) return false;
 
     if (isPerformed) {
@@ -158,13 +157,12 @@ public class GoImportPackageQuickFix extends LocalQuickFixAndIntentionActionOnPs
                              @NotNull PsiElement startElement,
                              @NotNull PsiElement endElement) {
     return !isPerformed && file instanceof GoFile && file.getManager().isInProject(file) && myReference.resolve() == null
-           && !myPackageName.endsWith(GoConstants.TEST_SUFFIX)
            && !getPackagesToImport(startElement).isEmpty() && notQualified(startElement);
   }
 
   private static boolean notQualified(@Nullable PsiElement startElement) {
-    return 
-      startElement instanceof GoReferenceExpression && ((GoReferenceExpression)startElement).getQualifier() == null || 
+    return
+      startElement instanceof GoReferenceExpression && ((GoReferenceExpression)startElement).getQualifier() == null ||
       startElement instanceof GoTypeReferenceExpression && ((GoTypeReferenceExpression)startElement).getQualifier() == null;
   }
 
@@ -182,11 +180,11 @@ public class GoImportPackageQuickFix extends LocalQuickFixAndIntentionActionOnPs
             return file.getImportPath();
           }
         }
-      )), new MyImportsComparator());
+      )), new MyImportsComparator(element));
     }
     return myPackagesToImport;
   }
-  
+
   private void applyFix(@NotNull final Collection<String> packagesToImport, @NotNull final PsiFile file, @Nullable Editor editor) {
     isPerformed = true;
     if (packagesToImport.size() > 1 && editor != null) {
@@ -229,11 +227,18 @@ public class GoImportPackageQuickFix extends LocalQuickFixAndIntentionActionOnPs
   }
 
   private static class MyImportsComparator implements Comparator<String> {
+    @Nullable
+    private final String myContextImportPath;
+
+    public MyImportsComparator(@Nullable PsiElement context) {
+      myContextImportPath = GoCompletionUtil.getContextImportPath(context);
+    }
+
     @Override
-    public int compare(String s1, String s2) {
-      int result = Comparing.compare(StringUtil.containsChar(s1, '.'), StringUtil.containsChar(s2, '.'));
-      result = result == 0 ? Comparing.compare(StringUtil.containsChar(s1, '/'), StringUtil.containsChar(s2, '/')) : result;
-      return result == 0 ? Comparing.compare(s1, s2) : result;
+    public int compare(@NotNull String s1, @NotNull String s2) {
+      int result = Comparing.compare(GoCompletionUtil.calculatePackagePriority(s2, myContextImportPath),
+                                     GoCompletionUtil.calculatePackagePriority(s1, myContextImportPath));
+      return result != 0 ? result : Comparing.compare(s1, s2);
     }
   }
 }

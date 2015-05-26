@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov, Mihai Toader
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,24 +30,19 @@ import com.goide.util.GoUtil;
 import com.intellij.extapi.psi.PsiFileBase;
 import com.intellij.lang.parser.GeneratedParserUtilBase;
 import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.module.Module;
-import com.intellij.openapi.module.ModuleUtilCore;
-import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Condition;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.FileViewProvider;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiElement;
+import com.intellij.psi.*;
 import com.intellij.psi.stubs.StubElement;
 import com.intellij.psi.stubs.StubTree;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.util.ArrayFactory;
+import com.intellij.util.ArrayUtil;
 import com.intellij.util.Processor;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.containers.MultiMap;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,13 +52,14 @@ import java.util.List;
 import java.util.Map;
 
 public class GoFile extends PsiFileBase {
+
   public GoFile(@NotNull FileViewProvider viewProvider) {
     super(viewProvider, GoLanguage.INSTANCE);
   }
 
   @Nullable
   public String getImportPath() {
-    return getImportPath(getParent());
+    return GoSdkUtil.getImportPath(getParent());
   }
   
   @Nullable
@@ -71,7 +67,7 @@ public class GoFile extends PsiFileBase {
     GoFileStub stub = getStub();
     if (stub != null) {
       String name = stub.getPackageName();
-      return GoElementFactory.createPackageClause(stub.getProject(), name);
+      return name != null ? GoElementFactory.createPackageClause(stub.getProject(), name) : null;
     }
     return CachedValuesManager.getCachedValue(this, new CachedValueProvider<GoPackageClause>() {
       @Override
@@ -91,6 +87,27 @@ public class GoFile extends PsiFileBase {
   public GoImportList getImportList() {
     return findChildByClass(GoImportList.class);
   }
+  
+  @Nullable
+  public String getBuildFlags() {
+    GoFileStub stub = getStub();
+    if (stub != null) {
+      return stub.getBuildFlags();
+    }
+
+    // https://code.google.com/p/go/source/browse/src/pkg/go/build/build.go?r=2449e85a115014c3d9251f86d499e5808141e6bc#790
+    Collection<String> buildFlags = ContainerUtil.newArrayList();
+    int buildFlagLength = GoConstants.BUILD_FLAG.length();
+    for (PsiComment comment : getCommentsToConsider(this)) {
+      String commentText = StringUtil.trimStart(comment.getText(), "//").trim();
+      if (commentText.startsWith(GoConstants.BUILD_FLAG) && commentText.length() > buildFlagLength 
+          && StringUtil.isWhiteSpace(commentText.charAt(buildFlagLength))) {
+        ContainerUtil.addIfNotNull(buildFlags, StringUtil.nullize(commentText.substring(buildFlagLength).trim(), true));
+      }
+    }
+    return !buildFlags.isEmpty() ? StringUtil.join(buildFlags, "|") : null;
+  }
+
 
   @NotNull
   public List<GoFunctionDeclaration> getFunctions() {
@@ -178,13 +195,13 @@ public class GoFile extends PsiFileBase {
           if (!spec.isForSideEffects()) {
             PsiDirectory resolve = spec.getImportString().resolve();
             extraDeps.add(resolve);
-            String path = getImportPath(resolve);
+            String path = GoSdkUtil.getImportPath(resolve);
             if (StringUtil.isNotEmpty(path)) {
               map.put(path, spec);
             }
           }
         }
-        return Result.create(map, GoSdkUtil.getSdkAndLibrariesCacheDependencies(GoFile.this));
+        return Result.create(map, GoSdkUtil.getSdkAndLibrariesCacheDependencies(GoFile.this, ArrayUtil.toObjectArray(extraDeps)));
       }
     });
   }
@@ -354,15 +371,14 @@ public class GoFile extends PsiFileBase {
     return GoFileType.INSTANCE;
   }
 
-  @Nullable
-  public GoFunctionDeclaration findMainFunction() { // todo create a map for faster search
+  public boolean hasMainFunction() { // todo create a map for faster search
     List<GoFunctionDeclaration> functions = getFunctions();
     for (GoFunctionDeclaration function : functions) {
       if (GoConstants.MAIN.equals(function.getName())) {
-        return function;
+        return true;
       }
     }
-    return null;
+    return false;
   }
 
   @Nullable
@@ -418,21 +434,32 @@ public class GoFile extends PsiFileBase {
     return Arrays.asList(stub.getChildrenByType(elementType, f));
   }
   
-  @Nullable
-  @Contract("null -> null")
-  private static String getImportPath(@Nullable final PsiDirectory psiDirectory) {
-    if (psiDirectory == null) {
-      return null;
+  @NotNull
+  private static Collection<PsiComment> getCommentsToConsider(@NotNull GoFile file) {
+    Collection<PsiComment> commentsToConsider = ContainerUtil.newArrayList();
+    PsiElement child = file.getFirstChild();
+    int lastEmptyLineOffset = 0;
+    while (child != null) {
+      if (child instanceof PsiComment) {
+        commentsToConsider.add((PsiComment)child);
+      }
+      else if (child instanceof PsiWhiteSpace) {
+        if (StringUtil.countChars(child.getText(), '\n') > 1) {
+          lastEmptyLineOffset = child.getTextRange().getStartOffset();
+        }
+      }
+      else {
+        break;
+      }
+      child = child.getNextSibling();
     }
-    return CachedValuesManager.getCachedValue(psiDirectory, new CachedValueProvider<String>() {
-      @Nullable
+    final int finalLastEmptyLineOffset = lastEmptyLineOffset;
+    return ContainerUtil.filter(commentsToConsider, new Condition<PsiComment>() {
       @Override
-      public Result<String> compute() {
-        Project project = psiDirectory.getProject();      
-        Module module = ModuleUtilCore.findModuleForPsiElement(psiDirectory);
-        String path = GoSdkUtil.getPathRelativeToSdkAndLibraries(psiDirectory.getVirtualFile(), project, module);
-        return Result.create(path, GoSdkUtil.getSdkAndLibrariesCacheDependencies(psiDirectory));
+      public boolean value(PsiComment comment) {
+        return comment.getTextRange().getStartOffset() < finalLastEmptyLineOffset;
       }
     });
   }
+
 }

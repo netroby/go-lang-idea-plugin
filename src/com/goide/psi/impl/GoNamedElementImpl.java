@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ public abstract class GoNamedElementImpl<T extends GoNamedStub<?>> extends GoStu
                                      @NotNull ResolveState state,
                                      PsiElement lastParent,
                                      @NotNull PsiElement place) {
-    return GoCompositeElementImpl.precessDeclarationDefault(this, processor, state, lastParent, place);
+    return GoCompositeElementImpl.processDeclarationsDefault(this, processor, state, lastParent, place);
   }
 
   @Override
@@ -160,7 +160,7 @@ public abstract class GoNamedElementImpl<T extends GoNamedStub<?>> extends GoStu
   @NotNull
   @Override
   public SearchScope getUseScope() {
-    return isPublic() ? super.getUseScope() : GoPsiImplUtil.cretePackageScope(getContainingFile());
+    return isPublic() ? super.getUseScope() : GoPsiImplUtil.packageScope(getContainingFile());
   }
 
   @Override

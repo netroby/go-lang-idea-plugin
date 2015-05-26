@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,7 @@
 
 package com.goide.runconfig;
 
-import com.goide.GoConstants;
 import com.goide.psi.GoFile;
-import com.goide.psi.GoFunctionDeclaration;
 import com.intellij.execution.configurations.ConfigurationFactory;
 import com.intellij.execution.configurations.RuntimeConfigurationError;
 import com.intellij.execution.configurations.RuntimeConfigurationException;
@@ -36,8 +34,8 @@ import org.jetbrains.annotations.NotNull;
 
 
 public abstract class GoRunConfigurationWithMain<T extends GoRunningState> extends GoRunConfigurationBase<T> {
-  private static final String FILE_PATH_NAME = "file_path";
-  
+  private static final String FILE_PATH_ATTRIBUTE_NAME = "filePath";
+
   @NotNull private String myFilePath = "";
 
   public GoRunConfigurationWithMain(String name, GoModuleBasedConfiguration configurationModule, ConfigurationFactory factory) {
@@ -48,24 +46,18 @@ public abstract class GoRunConfigurationWithMain<T extends GoRunningState> exten
   @Override
   public void readExternal(@NotNull Element element) throws InvalidDataException {
     super.readExternal(element);
-    String filePathValue = JDOMExternalizerUtil.getFirstChildValueAttribute(element, FILE_PATH_NAME);
-    if (filePathValue != null) {
-      myFilePath = filePathValue;
-    }
+    myFilePath = StringUtil.notNullize(JDOMExternalizerUtil.getFirstChildValueAttribute(element, FILE_PATH_ATTRIBUTE_NAME));
   }
 
   @Override
   public void writeExternal(Element element) throws WriteExternalException {
     super.writeExternal(element);
     if (StringUtil.isNotEmpty(myFilePath)) {
-      JDOMExternalizerUtil.addElementWithValueAttribute(element, FILE_PATH_NAME, myFilePath);
+      JDOMExternalizerUtil.addElementWithValueAttribute(element, FILE_PATH_ATTRIBUTE_NAME, myFilePath);
     }
   }
 
-  @Override
-  public void checkConfiguration() throws RuntimeConfigurationException {
-    super.checkConfiguration();
-
+  protected void checkFileConfiguration() throws RuntimeConfigurationError {
     VirtualFile file = VirtualFileManager.getInstance().findFileByUrl(VfsUtilCore.pathToUrl(getFilePath()));
     if (file == null) {
       throw new RuntimeConfigurationError("Main file is not specified");
@@ -74,13 +66,13 @@ public abstract class GoRunConfigurationWithMain<T extends GoRunningState> exten
     if (psiFile == null || !(psiFile instanceof GoFile)) {
       throw new RuntimeConfigurationError("Main file is invalid");
     }
-    if (!GoConstants.MAIN.equals(((GoFile)psiFile).getPackageName())) {
-      throw new RuntimeConfigurationError("Main file has non-main package");
+    if (!GoRunUtil.isMainGoFile(psiFile)) {
+      throw new RuntimeConfigurationError("Main file has non-main package or doesn't contain main function");
     }
-    GoFunctionDeclaration mainFunction = ((GoFile)psiFile).findMainFunction();
-    if (mainFunction == null) {
-      throw new RuntimeConfigurationError("Main file doesn't contain main function");
-    }
+  }
+
+  protected void checkBaseConfiguration() throws RuntimeConfigurationException {
+    super.checkConfiguration();
   }
 
   @NotNull

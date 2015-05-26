@@ -51,6 +51,7 @@ public class GoReference extends PsiPolyVariantReferenceBase<GoReferenceExpressi
   public static final Key<List<? extends PsiElement>> IMPORT_USERS = Key.create("IMPORT_USERS");
   public static final Key<String > ACTUAL_NAME = Key.create("ACTUAL_NAME");
   public static final Key<Object> POINTER = Key.create("POINTER");
+  public static final Key<Object> RECEIVER = Key.create("RECEIVER");
   public static final Key<SmartPsiElementPointer<GoReferenceExpressionBase>> CONTEXT = Key.create("CONTEXT");
   
   private static final ResolveCache.PolyVariantResolver<PsiPolyVariantReferenceBase> MY_RESOLVER =
@@ -127,7 +128,7 @@ public class GoReference extends PsiPolyVariantReferenceBase<GoReferenceExpressi
         // @formatter:off
         if (element instanceof GoNamedSignatureOwner)return GoCompletionUtil.createFunctionOrMethodLookupElement((GoNamedSignatureOwner)element);
         else if (element instanceof GoTypeSpec)      return forTypes ? GoCompletionUtil.createTypeLookupElement((GoTypeSpec)element) : GoCompletionUtil.createTypeConversionLookupElement((GoTypeSpec)element);
-        else if (element instanceof PsiDirectory)    return GoCompletionUtil.createPackageLookupElement(((PsiDirectory)element).getName(), true);
+        else if (element instanceof PsiDirectory)    return GoCompletionUtil.createPackageLookupElement(((PsiDirectory)element).getName(), element, true);
         else if (element instanceof GoNamedElement)  return GoCompletionUtil.createVariableLikeLookupElement((GoNamedElement)element);
         else if (element instanceof PsiNamedElement) return LookupElementBuilder.create((PsiNamedElement)element);
         else if (element instanceof GoImportSpec)    return GoCompletionUtil.createPackageLookupElement(((GoImportSpec)element), state.get(ACTUAL_NAME));
@@ -185,13 +186,16 @@ public class GoReference extends PsiPolyVariantReferenceBase<GoReferenceExpressi
   }
 
   private boolean processGoType(@NotNull GoType type, @NotNull MyScopeProcessor processor, @NotNull ResolveState state) {
+    if (type instanceof GoParType) return processGoType(((GoParType)type).getType(), processor, state);
+    if (type instanceof GoReceiverType) state = state.put(RECEIVER, Boolean.TRUE);
     if (!processExistingType(type, processor, state)) return false;
     if (type instanceof GoPointerType) {
       if (!processPointer((GoPointerType)type, processor, state.put(POINTER, Boolean.TRUE))) return false;
-      GoType pointer = type.getType();
+      GoType pointer = ((GoPointerType)type).getType();
       if (pointer instanceof GoPointerType) {
         return processPointer((GoPointerType)pointer, processor, state.put(POINTER, Boolean.TRUE));
       }
+      else if (pointer != null && state.get(RECEIVER) != null && !processGoType(pointer, processor, state)) return false;
     }
     return processTypeRef(type, processor, state);
   }
@@ -212,7 +216,9 @@ public class GoReference extends PsiPolyVariantReferenceBase<GoReferenceExpressi
     if (!(file instanceof GoFile)) return true;
     PsiFile myFile = myElement.getContainingFile();
     if (!(myFile instanceof GoFile)) return true;
-    boolean localResolve = Comparing.equal(((GoFile)myFile.getOriginalFile()).getImportPath(), ((GoFile)file.getOriginalFile()).getImportPath());
+    GoFile o1 = (GoFile)myFile.getOriginalFile();
+    GoFile o2 = (GoFile)file.getOriginalFile();
+    boolean localResolve = Comparing.equal(o1.getImportPath(), o2.getImportPath()) && Comparing.equal(o1.getPackageName(), o2.getPackageName());
 
     PsiElement parent = type.getStub() == null ? type.getParent() : type.getStub().getParentStub().getPsi();
     if (parent instanceof GoTypeSpec && !processNamedElements(processor, state, ((GoTypeSpec)parent).getMethods(), localResolve)) {

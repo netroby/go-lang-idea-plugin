@@ -1,3 +1,19 @@
+/*
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.goide.util;
 
 import com.goide.GoConstants;
@@ -28,11 +44,13 @@ import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.CharsetToolkit;
 import com.intellij.openapi.vfs.VirtualFileManager;
+import com.intellij.util.EnvironmentUtil;
 import com.intellij.util.ObjectUtils;
 import com.intellij.util.containers.ContainerUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -47,6 +65,7 @@ public class GoExecutor {
   @Nullable private final Module myModule;
   @Nullable private String myGoRoot;
   @Nullable private String myGoPath;
+  @Nullable private String myEnvPath;
   @Nullable private String myWorkDirectory;
   private boolean myShowOutputOnError = false;
   private boolean myShowNotificationsOnError = false;
@@ -62,11 +81,16 @@ public class GoExecutor {
     myModule = module;
   }
 
+  public static GoExecutor in(@NotNull Project project, @Nullable Module module) {
+    return module != null ? in(module) : in(project);
+  }
+  
   @NotNull
   public static GoExecutor in(@NotNull Project project) {
     return new GoExecutor(project, null)
       .withGoRoot(GoSdkService.getInstance(project).getSdkHomePath(null))
-      .withGoPath(GoSdkUtil.retrieveGoPath(project));
+      .withGoPath(GoSdkUtil.retrieveGoPath(project, null))
+      .withGoPath(GoSdkUtil.retrieveEnvironmentPathForGo(project, null));
   }
 
   @NotNull
@@ -74,7 +98,8 @@ public class GoExecutor {
     Project project = module.getProject();
     return new GoExecutor(project, module)
       .withGoRoot(GoSdkService.getInstance(project).getSdkHomePath(module))
-      .withGoPath(GoSdkUtil.retrieveGoPath(module));
+      .withGoPath(GoSdkUtil.retrieveGoPath(project, module))
+      .withEnvPath(GoSdkUtil.retrieveEnvironmentPathForGo(project, module));
   }
 
   @NotNull
@@ -104,6 +129,12 @@ public class GoExecutor {
   @NotNull
   public GoExecutor withGoPath(@Nullable String goPath) {
     myGoPath = goPath;
+    return this;
+  }
+  
+  @NotNull
+  public GoExecutor withEnvPath(@Nullable String envPath) {
+    myEnvPath = envPath;
     return this;
   }
   
@@ -288,6 +319,13 @@ public class GoExecutor {
     commandLine.getEnvironment().putAll(myExtraEnvironment);
     commandLine.getEnvironment().put(GoConstants.GO_ROOT, StringUtil.notNullize(myGoRoot));
     commandLine.getEnvironment().put(GoConstants.GO_PATH, StringUtil.notNullize(myGoPath));
+
+    Collection<String> paths = ContainerUtil.newArrayList();
+    ContainerUtil.addIfNotNull(paths, StringUtil.nullize(commandLine.getEnvironment().get(GoConstants.PATH), true));
+    ContainerUtil.addIfNotNull(paths, StringUtil.nullize(EnvironmentUtil.getValue(GoConstants.PATH), true));
+    ContainerUtil.addIfNotNull(paths, StringUtil.nullize(myEnvPath, true));
+    commandLine.getEnvironment().put(GoConstants.PATH, StringUtil.join(paths, File.pathSeparator));
+    
     commandLine.withWorkDirectory(myWorkDirectory);
     commandLine.addParameters(myParameterList.getList());
     commandLine.setPassParentEnvironment(myPassParentEnvironment);

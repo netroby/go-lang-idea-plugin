@@ -13,8 +13,8 @@ To use them, you'll need to follow these steps:
 
 1. Follow [the instructions](https://www.jetbrains.com/idea/help/managing-enterprise-plugin-repositories.html)
 1. Paste the url for the version you desire:
- - alpha: https://plugins.jetbrains.com/plugins/alpha/list
- - nightly: https://plugins.jetbrains.com/plugins/nightly/list
+ - alpha: https://plugins.jetbrains.com/plugins/alpha/5047
+ - nightly: https://plugins.jetbrains.com/plugins/nightly/5047
 
 As always, please remember that this is an alpha release and while efforts are
 made to ensure the best possible experience, sometimes things might be broken.
@@ -59,13 +59,13 @@ yours to the project.
 
 ## Contributing
 
-We encourage you to contribute to the plugin if you find any issues / or missing
+We encourage you to contribute to the plugin if you find any issues or missing
 functionality that you'd want to see. In order to get started, see
 [CONTRIBUTING.md](CONTRIBUTING.md) guide.
 
 ## Contributors
 
-People who helped with the plugin development, please see [contributors.md](contributors.md)
+People who helped with the plugin development, please see [contributors page](https://github.com/go-lang-plugin-org/go-lang-idea-plugin/graphs/contributors).
 
 ## Thank you
 

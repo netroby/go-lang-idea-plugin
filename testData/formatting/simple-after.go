@@ -65,10 +65,45 @@ func main() {
 }
 
 
+func main23() {
+	i := 1
+
+	switch i {
+	case 1:
+		fmt.Print("1")
+		fmt.Print("1")
+		fmt.Print("1")
+		fmt.Print("1")
+	case 2:
+	default:
+		fmt.Println(1)
+
+
+	}
+}
+
+func main() {
+	select {
+	case a <- 1:
+		return a
+	case a, ok := <-c3:
+		break
+	//
+	default:
+		return b
+	}
+}
+
 
 func main() {
 	tick := time.Tick(100 * time.Millisecond)
 	boom := time.After(500 * time.Millisecond)
+
+
+	example23123(
+		"test",
+		1,
+	)
 
 	for {
 		select {
@@ -109,3 +144,52 @@ func main() {
 		}
 	}
 }
+
+
+type T struct {
+	name        []string // name of the object
+	value, a, b int      // its value
+}
+
+type x struct {
+	x, y int         // a
+	u    float32     // b
+	_    float32     // c
+	A1   *[]int      // ca
+	FFF  func()      // adsfasd
+	X    interface{} /* adsf*/
+	X1   interface{} /* adsf*/
+}
+
+// comment
+
+// comment
+
+import "A"
+
+// comment
+type x a
+
+// comment
+var a int = 1
+
+// comment
+const a = iota
+
+// comment
+func a() {}
+
+// comment
+func (p *int) Length() {}
+
+type (
+	Foo1 struct {
+		a int
+	}
+
+	Foo2 struct {
+		b int
+	}
+
+	F func(interface{}) interface{}
+)

@@ -382,3 +382,23 @@ func <warning>defer_go</warning>() {
 func <warning>foo_bar_</warning>(bar func(baz    int)) {
       <error>baz</error>
 }
+
+type Ormer interface {
+	Insert(interface{})
+}
+
+func <warning>Save</warning>(o Ormer) {
+	(*o).Insert(1)
+}
+
+type Conn interface {
+	Do(commandName string, args ...interface{}) (reply interface{}, err error)
+}
+
+func String(reply interface{}, err error) {
+}
+ 
+func _(c Conn) {
+	String(c.Do("GET", "somekey"))
+}
+

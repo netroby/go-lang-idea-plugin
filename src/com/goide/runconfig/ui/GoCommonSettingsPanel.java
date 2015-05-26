@@ -1,7 +1,23 @@
+/*
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.goide.runconfig.ui;
 
 import com.goide.runconfig.GoRunConfigurationBase;
-import com.goide.util.GoUtil;
+import com.goide.runconfig.GoRunUtil;
 import com.intellij.application.options.ModulesComboBox;
 import com.intellij.execution.configuration.EnvironmentVariablesTextFieldWithBrowseButton;
 import com.intellij.openapi.module.Module;
@@ -15,6 +31,7 @@ import org.jetbrains.annotations.Nullable;
 import javax.swing.*;
 
 public class GoCommonSettingsPanel extends JBPanel {
+  private RawCommandLineEditor myGoToolParamsField;
   private RawCommandLineEditor myParamsField;
   private TextFieldWithBrowseButton myWorkingDirectoryField;
   private EnvironmentVariablesTextFieldWithBrowseButton myEnvironmentField;
@@ -22,12 +39,13 @@ public class GoCommonSettingsPanel extends JBPanel {
   @SuppressWarnings("unused") private JPanel myRoot;
 
   public void init(@NotNull Project project) {
-    GoUtil.installFileChooser(project, myWorkingDirectoryField, true);
+    GoRunUtil.installFileChooser(project, myWorkingDirectoryField, true);
   }
 
   public void resetEditorFrom(@NotNull GoRunConfigurationBase<?> configuration) {
     myModulesComboBox.setModules(configuration.getValidModules());
     myModulesComboBox.setSelectedModule(configuration.getConfigurationModule().getModule());
+    myGoToolParamsField.setText(configuration.getGoToolParams());
     myParamsField.setText(configuration.getParams());
     myWorkingDirectoryField.setText(configuration.getWorkingDirectory());
     myEnvironmentField.setEnvs(configuration.getCustomEnvironment());
@@ -36,6 +54,7 @@ public class GoCommonSettingsPanel extends JBPanel {
 
   public void applyEditorTo(@NotNull GoRunConfigurationBase<?> configuration) {
     configuration.setModule(myModulesComboBox.getSelectedModule());
+    configuration.setGoParams(myGoToolParamsField.getText());
     configuration.setParams(myParamsField.getText());
     configuration.setWorkingDirectory(myWorkingDirectoryField.getText());
     configuration.setCustomEnvironment(myEnvironmentField.getEnvs());

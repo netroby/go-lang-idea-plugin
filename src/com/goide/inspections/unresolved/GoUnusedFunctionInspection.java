@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package com.goide.inspections.unresolved;
 import com.goide.GoConstants;
 import com.goide.inspections.GoDeleteQuickFix;
 import com.goide.inspections.GoInspectionBase;
+import com.goide.inspections.GoRenameToBlankQuickFix;
 import com.goide.psi.GoFile;
 import com.goide.psi.GoFunctionDeclaration;
 import com.goide.psi.GoVisitor;
@@ -41,17 +42,18 @@ public class GoUnusedFunctionInspection extends GoInspectionBase {
     return new GoVisitor() {
       @Override
       public void visitFunctionDeclaration(@NotNull GoFunctionDeclaration o) {
+        if (o.isBlank()) return;
         GoFile file = o.getContainingFile();
         String name = o.getName();
         if (GoConstants.MAIN.equals(file.getPackageName()) && GoConstants.MAIN.equals(name)) return;
         if (GoConstants.INIT.equals(name)) return;
-        if (GoTestFinder.isTestFile(file) && name != null && (name.startsWith("Test") || name.startsWith("Benchmark"))) return;
+        if (GoTestFinder.isTestFile(file) && (GoTestFinder.isTestFunctionName(name) || GoTestFinder.isBenchmarkFunctionName(name))) return;
         Query<PsiReference> search = ReferencesSearch.search(o, o.getUseScope());
         if (search.findFirst() == null) {
           PsiElement id = o.getIdentifier();
           TextRange range = TextRange.from(id.getStartOffsetInParent(), id.getTextLength());
           holder.registerProblem(o, "Unused function " + "'" + name + "'", ProblemHighlightType.LIKE_UNUSED_SYMBOL, range,
-                                 new GoDeleteQuickFix("Delete function '" + name + "'"));
+                                 new GoDeleteQuickFix("Delete function '" + name + "'"), new GoRenameToBlankQuickFix(o));
         }
       }
     };

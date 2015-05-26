@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.goide.psi.impl.imports;
 
 import com.goide.psi.GoImportString;
 import com.intellij.openapi.util.Condition;
+import com.intellij.openapi.util.Conditions;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiFileSystemItem;
 import com.intellij.psi.impl.source.resolve.reference.impl.providers.FileReference;
@@ -32,7 +33,10 @@ public class GoImportReferenceSet extends FileReferenceSet {
 
   @Override
   protected Condition<PsiFileSystemItem> getReferenceCompletionFilter() {
-    return DIRECTORY_FILTER;
+    if (!getPathString().startsWith("./") && !getPathString().startsWith("../")) {
+      return Conditions.alwaysFalse();
+    }
+    return super.getReferenceCompletionFilter();
   }
 
   @Nullable

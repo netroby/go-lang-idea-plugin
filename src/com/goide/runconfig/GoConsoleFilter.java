@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,6 +45,11 @@ public class GoConsoleFilter implements Filter {
   @Nullable private final Module myModule;
   @Nullable private final String myWorkingDirectoryUrl;
 
+  @SuppressWarnings("unused") //used by pico container
+  public GoConsoleFilter(@NotNull Project project) {
+    this(project, null, null);
+  }
+  
   public GoConsoleFilter(@NotNull Project project, @Nullable Module module, @Nullable String workingDirectoryUrl) {
     myProject = project;
     myModule = module;
@@ -122,7 +127,7 @@ public class GoConsoleFilter implements Filter {
 
   @Nullable
   private VirtualFile findInGoPath(@NotNull String fileName) {
-    for (VirtualFile goPathSrc : GoSdkUtil.getGoPathsSources(myProject, myModule)) {
+    for (VirtualFile goPathSrc : GoSdkUtil.getGoPathSources(myProject, myModule)) {
       VirtualFile virtualFile = goPathSrc.findFileByRelativePath(fileName);
       if (virtualFile != null) return virtualFile;
     }

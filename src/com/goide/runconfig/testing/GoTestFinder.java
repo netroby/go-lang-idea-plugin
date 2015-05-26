@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,11 +48,23 @@ public class GoTestFinder implements TestFinder {
   
   @Nullable
   public static String getTestFunctionName(@NotNull GoFunctionDeclaration function) {
-    String functionName = StringUtil.notNullize(function.getName());
-    if (functionName.startsWith("Test")) {
-      return functionName;
-    }
-    return null;
+    return isTestFunctionName(function.getName()) ? StringUtil.notNullize(function.getName()) : null;
+  }
+  
+  public static boolean isTestFunctionName(@Nullable String functionName) {
+    return checkPrefix(functionName, "Test");
+  }
+
+  public static boolean isBenchmarkFunctionName(@Nullable String functionName) {
+    return checkPrefix(functionName, "Benchmark");
+  }
+
+  private static boolean checkPrefix(@Nullable String name, @NotNull String prefix) {
+    // https://github.com/golang/go/blob/master/src/cmd/go/test.go#L1161 – isTest()
+    if (name == null || !name.startsWith(prefix)) return false;
+    if (prefix.length() == name.length()) return true;
+    final char c = name.charAt(prefix.length());
+    return !Character.isLetter(c) || !Character.isLowerCase(c);
   }
 
   @Nullable

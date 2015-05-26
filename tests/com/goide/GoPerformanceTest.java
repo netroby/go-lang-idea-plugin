@@ -1,3 +1,19 @@
+/*
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.goide;
 
 import com.goide.categories.Performance;
@@ -59,6 +75,23 @@ public class GoPerformanceTest extends GoCodeInsightFixtureTestCase {
     doInspectionTest(new GoUnusedImportDeclaration(), (int)TimeUnit.MINUTES.toMillis(1));
   }
 
+  public void testPerformanceA() {
+    doHighlightingTest(TimeUnit.SECONDS.toMillis(10));
+  }
+
+  public void testPerformanceA2() {
+    doHighlightingTest(TimeUnit.SECONDS.toMillis(15));
+  }
+
+  private void doHighlightingTest(long expectation) {
+    PlatformTestUtil.startPerformanceTest(getTestName(true), (int)expectation, new ThrowableRunnable() {
+      @Override
+      public void run() throws Throwable {
+        myFixture.testHighlighting(true, false, false, getTestName(true) + ".go");
+      }
+    }).cpuBound().usesAllCPUCores().assertTiming();
+  }
+
   private void doInspectionTest(@NotNull InspectionProfileEntry tool, int expected) {
     if (!new File(myFixture.getTestDataPath(), "docker").exists()) {
       System.err.println("For performance tests you need to have a docker project inside testData/" + getBasePath() + " directory");
@@ -88,7 +121,10 @@ public class GoPerformanceTest extends GoCodeInsightFixtureTestCase {
   public void testParserAndStubs() {
     final File go = new File(getTestDataPath(), "go");
     if (!go.exists()) {
-      System.err.println("For performance tests you need to have a go sources (https://storage.googleapis.com/golang/go1.4.2.src.tar.gz) inside testData/" + getBasePath() + " directory");
+      System.err.println(
+        "For performance tests you need to have a go sources (https://storage.googleapis.com/golang/go1.4.2.src.tar.gz) inside testData/" +
+        getBasePath() +
+        " directory");
       return;
     }
 
@@ -120,14 +156,13 @@ public class GoPerformanceTest extends GoCodeInsightFixtureTestCase {
                 UsefulTestCase.assertSameLines(full, fast);
               }
             }
-            catch (IOException e) {
-              return CONTINUE;
+            catch (IOException ignored) {
             }
             return CONTINUE;
           }
         });
       }
-    }).cpuBound().usesAllCPUCores().assertTiming();
+    }).usesAllCPUCores().assertTiming();
   }
 
   @Override

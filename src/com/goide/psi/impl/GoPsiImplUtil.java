@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 Sergey Ignatov, Alexander Zolotov, Mihai Toader
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package com.goide.psi.impl;
 
+import com.goide.GoConstants;
 import com.goide.GoTypes;
 import com.goide.psi.*;
 import com.goide.psi.impl.imports.GoImportReferenceSet;
@@ -42,7 +43,6 @@ import com.intellij.psi.impl.source.tree.LeafElement;
 import com.intellij.psi.scope.PsiScopeProcessor;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.search.GlobalSearchScopesCore;
-import com.intellij.psi.search.SearchScope;
 import com.intellij.psi.stubs.IStubElementType;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
@@ -62,7 +62,7 @@ public class GoPsiImplUtil {
   public static boolean builtin(@NotNull PsiElement resolve) {
     PsiFile file = resolve.getContainingFile();
     if (!(file instanceof GoFile)) return false;
-    return "builtin".equals(((GoFile)file).getPackageName()) && file.getName().equals("builtin.go");
+    return isBuiltinFile(file);
   }
 
   public static boolean isPanic(@NotNull GoCallExpr o) {
@@ -72,13 +72,18 @@ public class GoPsiImplUtil {
       PsiElement resolve = reference != null ? reference.resolve() : null;
       if (!(resolve instanceof GoFunctionDeclaration)) return false;
       GoFile file = ((GoFunctionDeclaration)resolve).getContainingFile();
-      return StringUtil.equals(file.getPackageName(), "builtin") && StringUtil.equals(file.getName(), "builtin.go");
+      return isBuiltinFile(file);
     }
     return false;
   }
 
+  private static boolean isBuiltinFile(@NotNull PsiFile file) {
+    return StringUtil.equals(((GoFile)file).getPackageName(), GoConstants.BUILTIN_PACKAGE_NAME)
+           && StringUtil.equals(file.getName(), GoConstants.BUILTIN_FILE_NAME);
+  }
+
   @NotNull
-  public static SearchScope cretePackageScope(@NotNull GoFile file) {
+  public static GlobalSearchScope packageScope(@NotNull GoFile file) {
     List<GoFile> files = getAllPackageFiles(file);
     return GlobalSearchScope.filesScope(file.getProject(), ContainerUtil.map(files, new Function<GoFile, VirtualFile>() {
       @Override
@@ -108,6 +113,10 @@ public class GoPsiImplUtil {
     GoTopLevelDeclaration declaration = PsiTreeUtil.getTopmostParentOfType(startElement, GoTopLevelDeclaration.class);
     if (declaration == null || !(declaration.getParent() instanceof GoFile)) return null;
     return declaration;
+  }
+  
+  public static int getArity(@Nullable GoSignature s) {
+    return s == null ? -1 : s.getParameters().getParameterDeclarationList().size();
   }
 
   @Nullable
@@ -195,9 +204,9 @@ public class GoPsiImplUtil {
 
   public static boolean processDeclarations(@NotNull GoCompositeElement o, @NotNull PsiScopeProcessor processor, @NotNull ResolveState state, PsiElement lastParent, @NotNull PsiElement place) {
     boolean isAncestor = PsiTreeUtil.isAncestor(o, place, false);
-    if (o instanceof GoVarSpec) return isAncestor || GoCompositeElementImpl.precessDeclarationDefault(o, processor, state, lastParent, place);
+    if (o instanceof GoVarSpec) return isAncestor || GoCompositeElementImpl.processDeclarationsDefault(o, processor, state, lastParent, place);
 
-    if (isAncestor) return GoCompositeElementImpl.precessDeclarationDefault(o, processor, state, lastParent, place);
+    if (isAncestor) return GoCompositeElementImpl.processDeclarationsDefault(o, processor, state, lastParent, place);
 
     if (o instanceof GoBlock ||
         o instanceof GoIfStatement ||
@@ -208,7 +217,7 @@ public class GoPsiImplUtil {
         o instanceof GoExprCaseClause) {
       return processor.execute(o, state);
     }
-    return GoCompositeElementImpl.precessDeclarationDefault(o, processor, state, lastParent, place);
+    return GoCompositeElementImpl.processDeclarationsDefault(o, processor, state, lastParent, place);
   }
 
   @Nullable
@@ -251,7 +260,7 @@ public class GoPsiImplUtil {
   public static GoTypeReferenceExpression getTypeReference(@Nullable GoType o) {
     if (o == null) return null;
     if (o instanceof GoChannelType) {
-      GoType type = o.getType();
+      GoType type = ((GoChannelType)o).getType();
       return type != null ? type.getTypeReferenceExpression() : null;
     }
     if (o instanceof GoReceiverType) {
@@ -302,8 +311,8 @@ public class GoPsiImplUtil {
       GoExpression expression = ((GoUnaryExpr)o).getExpression();
       if (expression != null) {
         GoType type = expression.getGoType(context);
-        if (type instanceof GoChannelType && ((GoUnaryExpr)o).getSendChannel() != null) return type.getType();
-        if (type instanceof GoPointerType && ((GoUnaryExpr)o).getMul() != null) return type.getType();
+        if (type instanceof GoChannelType && ((GoUnaryExpr)o).getSendChannel() != null) return ((GoChannelType)type).getType();
+        if (type instanceof GoPointerType && ((GoUnaryExpr)o).getMul() != null) return ((GoPointerType)type).getType();
         return type;
       }
       return null;
@@ -362,14 +371,20 @@ public class GoPsiImplUtil {
         }
       }
       else if (type instanceof GoArrayOrSliceType) {
-        return type.getType();
+        return ((GoArrayOrSliceType)type).getType();
       }
     }
     else if (o instanceof GoTypeAssertionExpr) {
       return ((GoTypeAssertionExpr)o).getType();
     }
     else if (o instanceof GoConversionExpr) {
-      return ((GoConversionExpr)o).getType().getType();
+      return ((GoConversionExpr)o).getType();
+    }
+    else if (o instanceof GoMethodExpr) {
+      GoReferenceExpression e = ((GoMethodExpr)o).getReferenceExpression();
+      GoReference reference = e != null ? e.getReference() : null;
+      PsiElement resolve = reference != null ? reference.resolve() : null;
+      return resolve instanceof GoTypeOwner ? ((GoTypeOwner)resolve).getGoType(context) : null;
     }
     return null;
   }
@@ -406,18 +421,6 @@ public class GoPsiImplUtil {
         @Nullable
         @Override
         public GoTypeReferenceExpression getTypeReferenceExpression() {
-          return null;
-        }
-
-        @Nullable
-        @Override
-        public PsiElement getLparen() {
-          return null;
-        }
-
-        @Nullable
-        @Override
-        public PsiElement getRparen() {
           return null;
         }
 
@@ -525,6 +528,7 @@ public class GoPsiImplUtil {
     if (exprs.size() == 1 && exprs.get(0) instanceof GoCallExpr) {
       GoExpression call = exprs.get(0);
       GoType type = call.getGoType(null);
+      type = funcType(type);
       if (type instanceof GoTypeList) {
         if (((GoTypeList)type).getTypeList().size() > i) {
           return ((GoTypeList)type).getTypeList().get(i);
@@ -534,6 +538,16 @@ public class GoPsiImplUtil {
     }
     if (exprs.size() <= i) return null;
     return exprs.get(i).getGoType(null);
+  }
+
+  @Nullable
+  private static GoType funcType(@Nullable GoType type) {
+    if (type instanceof GoFunctionType) {
+      GoSignature signature = ((GoFunctionType)type).getSignature();
+      GoResult result = signature != null ? signature.getResult() : null;
+      return result != null ? result.getType() : type;
+    }
+    return type;
   }
 
   @Nullable
@@ -549,7 +563,7 @@ public class GoPsiImplUtil {
       i = i == -1 ? 0 : i;
       GoType type = last.getGoType(null);
       if (type instanceof GoChannelType) {
-        return type.getType();
+        return ((GoChannelType)type).getType();
       }
       GoTypeReferenceExpression typeRef = type != null ? type.getTypeReferenceExpression() : null;
       if (typeRef != null) {
@@ -557,11 +571,11 @@ public class GoPsiImplUtil {
         if (resolve instanceof GoTypeSpec) {
           type = ((GoTypeSpec)resolve).getType();
           if (type instanceof GoChannelType) {
-            return type.getType();
+            return ((GoChannelType)type).getType();
           }
         }
       }
-      if (type instanceof GoArrayOrSliceType && i == 1) return type.getType();
+      if (type instanceof GoArrayOrSliceType && i == 1) return ((GoArrayOrSliceType)type).getType();
       if (type instanceof GoMapType) {
         List<GoType> list = ((GoMapType)type).getTypeList();
         if (i == 0) return ContainerUtil.getFirstItem(list);
@@ -626,11 +640,10 @@ public class GoPsiImplUtil {
 
   @NotNull
   private static List<GoMethodDeclaration> calcMethods(@NotNull GoTypeSpec o) {
-    PsiElement identifier = o.getIdentifier();
     PsiFile file = o.getContainingFile().getOriginalFile();
     if (file instanceof GoFile) {
       String packageName = ((GoFile)file).getPackageName();
-      String typeName = identifier.getText();
+      String typeName = o.getName();
       if (StringUtil.isEmpty(packageName) || StringUtil.isEmpty(typeName)) return Collections.emptyList();
       String key = packageName + "." + typeName;
       Project project = ((GoFile)file).getProject();
@@ -662,6 +675,7 @@ public class GoPsiImplUtil {
             composite.add(definition.getGoType(context));
           }
         }
+        if (composite.size() == 1) return composite.get(0);
         class MyGoTypeList extends LightElement implements GoTypeList {
           @NotNull private final List<GoType> myTypes;
 
@@ -678,25 +692,7 @@ public class GoPsiImplUtil {
 
           @Nullable
           @Override
-          public GoType getType() {
-            return null;
-          }
-
-          @Nullable
-          @Override
           public GoTypeReferenceExpression getTypeReferenceExpression() {
-            return null;
-          }
-
-          @Nullable
-          @Override
-          public PsiElement getLparen() {
-            return null;
-          }
-
-          @Nullable
-          @Override
-          public PsiElement getRparen() {
             return null;
           }
 
@@ -818,6 +814,10 @@ public class GoPsiImplUtil {
     return false;
   }
 
+  public static boolean shouldGoDeeper(@SuppressWarnings("UnusedParameters") GoTypeSpec o) {
+    return false;
+  }
+
   public static boolean isForSideEffects(@NotNull GoImportSpec o) {
     return "_".equals(o.getAlias());
   }
@@ -879,7 +879,7 @@ public class GoPsiImplUtil {
   }
 
   public static boolean prevDot(@Nullable PsiElement parent) {
-    PsiElement prev = parent == null ? null : PsiTreeUtil.prevLeaf(parent, true);
+    PsiElement prev = parent == null ? null : PsiTreeUtil.prevVisibleLeaf(parent);
     return prev instanceof LeafElement && ((LeafElement)prev).getElementType() == GoTypes.DOT;
   }
 
@@ -893,5 +893,10 @@ public class GoPsiImplUtil {
     }
     GoReferenceExpression r = e instanceof GoReferenceExpression ? ((GoReferenceExpression)e) : PsiTreeUtil.getChildOfType(e, GoReferenceExpression.class);
     return (r != null ? r : e).getReference();
+  }
+
+  public static boolean isUnaryBitAndExpression(@Nullable PsiElement parent) {
+    PsiElement grandParent = parent != null ? parent.getParent() : null;
+    return grandParent instanceof GoUnaryExpr && ((GoUnaryExpr)grandParent).getBitAnd() != null;
   }
 }
