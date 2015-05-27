@@ -26,7 +26,7 @@ allprojects {
   sourceCompatibility = 1.6
   targetCompatibility = 1.6
 
-  idea {                                                                                                                                                                  
+  idea {
     version '14.1'
     plugins 'coverage'
   }
@@ -115,7 +115,10 @@ jar {
         pluginXml.version.each {
           it.value = version
         }
-        new XmlNodePrinter(new PrintWriter(new FileWriter(it))).print(pluginXml)
+
+        def printer = new XmlNodePrinter(new PrintWriter(new FileWriter(it)))
+        printer.preserveWhitespace = true
+        printer.print(pluginXml)
       }
     }
   }
