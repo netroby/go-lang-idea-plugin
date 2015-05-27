@@ -60,7 +60,17 @@ test {
   }
 }
 
-task performanceTest(type: Test) << {
+task preparePerformanceTestData << {
+  downloadAndUnzip('https://storage.googleapis.com/golang/go1.4.2.src.tar.gz', 'go', 'go')
+  downloadAndUnzip('https://github.com/docker/docker/archive/v1.5.0.tar.gz', 'docker-1.5.0', 'docker')
+}
+
+task performanceTest(type: Test, dependsOn: [test, preparePerformanceTestData]) << {
+  maxHeapSize = '512m'
+  minHeapSize = '256m'
+  enableAssertions = true
+  jvmArgs '-XX:MaxPermSize=250m', '-Didea.system.path=system-test', '-Didea.config.path=config-test'
+
   useJUnit {
     includeCategories 'com.goide.categories.Performance'
     reports.html.destination = "$buildDir/reports/performanceTests"
@@ -70,12 +80,6 @@ task performanceTest(type: Test) << {
   }
 }
 check.dependsOn performanceTest
-
-task preparePerformanceTestData << {
-  downloadAndUnzip('https://storage.googleapis.com/golang/go1.4.2.src.tar.gz', 'go', 'go')
-  downloadAndUnzip('https://github.com/docker/docker/archive/v1.5.0.tar.gz', 'docker-1.5.0', 'docker')
-}
-performanceTest.dependsOn preparePerformanceTestData
 
 private void downloadAndUnzip(url, sourceDir, targetDir) {
   def testDataPath = "${projectDir}/testData/performance/"
