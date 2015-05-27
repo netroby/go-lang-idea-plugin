@@ -108,13 +108,15 @@ private void downloadAndUnzip(url, sourceDir, targetDir) {
 jar {
   archiveName = 'intellij-go.jar'
   description = "Set plugin version in plugin.xml"
-  sourceSets.main.output.files.each { file ->
-    fileTree(file).include("META-INF/plugin.xml").each {
-      def pluginXml = new XmlParser().parse(it)
-      pluginXml.version.each {
-        it.value = version
+  doFirst {
+    sourceSets.main.output.files.each { file ->
+      fileTree(file).include("META-INF/plugin.xml").each {
+        def pluginXml = new XmlParser().parse(it)
+        pluginXml.version.each {
+          it.value = version
+        }
+        new XmlNodePrinter(new PrintWriter(new FileWriter(it))).print(pluginXml)
       }
-      new XmlNodePrinter(new PrintWriter(new FileWriter(it))).print(pluginXml)
     }
   }
 }
