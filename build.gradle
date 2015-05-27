@@ -60,7 +60,7 @@ test {
   }
 }
 
-task performanceTest(type: Test) {
+task performanceTest(type: Test) << {
   useJUnit {
     includeCategories 'com.goide.categories.Performance'
     reports.html.destination = "$buildDir/reports/performanceTests"
@@ -71,7 +71,7 @@ task performanceTest(type: Test) {
 }
 check.dependsOn performanceTest
 
-task preparePerformanceTestData() {
+task preparePerformanceTestData << {
   downloadAndUnzip('https://storage.googleapis.com/golang/go1.4.2.src.tar.gz', 'go', 'go')
   downloadAndUnzip('https://github.com/docker/docker/archive/v1.5.0.tar.gz', 'docker-1.5.0', 'docker')
 }
@@ -101,24 +101,26 @@ private void downloadAndUnzip(url, sourceDir, targetDir) {
 }
 
 // todo: extract to plugin
-task patchPluginVersion() {
+jar {
   description = "Set plugin version in plugin.xml"
   sourceSets.main.output.files.each { file ->
-    fileTree(file).include("META-INF/plugin.xml").each { pluginXml ->
-      new XmlParser().parse(pluginXml).version.each {
+    fileTree(file).include("META-INF/plugin.xml").each {
+      def pluginXml = new XmlParser().parse(it)
+      pluginXml.version.each {
         it.value = version
       }
-      new XmlNodePrinter(new PrintWriter(new FileWriter(pluginXml))).print(xml)
+      new XmlNodePrinter(new PrintWriter(new FileWriter(it))).print(pluginXml)
     }
   }
 }
-jar.dependsOn patchPluginVersion
 
-// todo: extract to plugin
-task ideaZip(type: Zip, dependsOn: jar) {
-  description = "Creates an installable archive of this plugin"
-  from allprojects.jar.archivePath
-  into "/lib"
+apply plugin: 'distribution'
+distributions {
+  main {
+    baseName = 'Go'
+    contents {
+      from allprojects.jar.archivePath
+      into "/lib"
+    }
+  }
 }
-
-assemble.dependsOn ideaZip
