@@ -64,10 +64,13 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
   public DelveDebugProcess(@NotNull XDebugSession session, DelveExecutionResult executionResult) {
     super(session);
 
-    myConfiguration = executionResult.getConfiguration();
     myConsole = (ConsoleView)executionResult.getExecutionConsole();
-    // TODO: make it configurable :)
-    myDelve = new Delve("/home/florinp/golang/bin/dlv", "/home/florinp/golang/src/github.com/dlsniper/u", this);
+
+    myConfiguration = executionResult.getConfiguration();
+    String delvePath = myConfiguration.DELVE_PATH;
+    String goFilePath = myConfiguration.GO_FILE_PATH;
+    String workingDirectoryPath = myConfiguration.WORKING_DIRECTORY_PATH;
+    myDelve = new Delve(delvePath, goFilePath, workingDirectoryPath, this);
     myDelveConsole = new DelveConsoleView(myDelve, session.getProject());
     myBreakpointHandler = new DelveBreakpointHandler(myDelve, this);
     myDelve.start();
@@ -154,14 +157,7 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
    * Called when Delve has started.
    */
   public void onDelveStarted() {
-    // Send startup commands
-    String[] commandsArray = myConfiguration.STARTUP_COMMANDS.split("\\r?\\n");
-    for (String command : commandsArray) {
-      command = command.trim();
-      if (!command.isEmpty()) {
-        myDelve.sendCommand(command);
-      }
-    }
+    // TODO implement support for additional startup commands
   }
 
   /**

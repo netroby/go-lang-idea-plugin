@@ -39,8 +39,8 @@ public class DelveRunConfiguration extends ModuleBasedConfiguration<RunConfigura
   private static final Logger LOG = Logger.getInstance(DelveRunConfiguration.class);
 
   public String DELVE_PATH = "dlv";
-  public String APP_PATH = "";
-  public String STARTUP_COMMANDS = "";
+  public String GO_FILE_PATH = "";
+  public String WORKING_DIRECTORY_PATH = "";
 
   public DelveRunConfiguration(String name,
                                @NotNull Project project,

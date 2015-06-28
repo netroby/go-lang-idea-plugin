@@ -94,12 +94,12 @@ public class Delve {
     }
   }
 
-  public Delve(final String delvePath, final String workingDirectory, DelveListener listener) {
+  public Delve(final String delvePath, final String goFilePath, final String workingDirectory, DelveListener listener) {
     myListener = listener;
     myReadThread = new Thread(new Runnable() {
       @Override
       public void run() {
-        runDelve(delvePath, workingDirectory);
+        runDelve(delvePath, goFilePath, workingDirectory);
       }
     });
   }
@@ -111,7 +111,7 @@ public class Delve {
     myReadThread.start();
   }
 
-  private void runDelve(String delvePath, @Nullable String workingDirectory) {
+  private void runDelve(String delvePath, String goFilePath, @Nullable String workingDirectory) {
     try {
       // Launch the process
       final String[] commandLine = {
@@ -120,7 +120,7 @@ public class Delve {
         "-log",
         "-headless",
         "run",
-        "/home/florinp/golang/src/github.com/dlsniper/u/u.go"
+        goFilePath
       };
       File workingDirectoryFile = null;
       if (workingDirectory != null) {

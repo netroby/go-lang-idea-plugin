@@ -28,26 +28,27 @@ import javax.swing.*;
 public class DelveRunConfigurationEditor extends SettingsEditor<DelveRunConfiguration> {
   private JPanel myPanel;
   private TextFieldWithBrowseButton myDelvePath;
-  private TextFieldWithBrowseButton myAppPath;
-  private JTextArea myStartupCommands;
+  private TextFieldWithBrowseButton myWorkingDirectoryPath;
+  private TextFieldWithBrowseButton myGoFilePath;
 
   public DelveRunConfigurationEditor(Project project) {
-    GoRunUtil.installFileChooser(project, myAppPath, false);
     GoRunUtil.installFileChooser(project, myDelvePath, false);
+    GoRunUtil.installFileChooser(project, myGoFilePath, false);
+    GoRunUtil.installFileChooser(project, myWorkingDirectoryPath, true);
   }
 
   @Override
   protected void resetEditorFrom(@NotNull DelveRunConfiguration configuration) {
     myDelvePath.setText(configuration.DELVE_PATH);
-    myAppPath.setText(configuration.APP_PATH);
-    myStartupCommands.setText(configuration.STARTUP_COMMANDS);
+    myGoFilePath.setText(configuration.GO_FILE_PATH);
+    myWorkingDirectoryPath.setText(configuration.WORKING_DIRECTORY_PATH);
   }
 
   @Override
   protected void applyEditorTo(@NotNull DelveRunConfiguration configuration) throws ConfigurationException {
     configuration.DELVE_PATH = myDelvePath.getText();
-    configuration.APP_PATH = myAppPath.getText();
-    configuration.STARTUP_COMMANDS = myStartupCommands.getText();
+    configuration.GO_FILE_PATH = myGoFilePath.getText();
+    configuration.WORKING_DIRECTORY_PATH = myWorkingDirectoryPath.getText();
   }
 
   @NotNull
