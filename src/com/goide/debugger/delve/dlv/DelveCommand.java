@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class DelveCommand {
-  private int id = 0;
+  private long id = 0;
   private String method = "";
   private ArrayList<Object> params = new ArrayList<Object>();
 
@@ -47,11 +47,11 @@ public class DelveCommand {
     return this;
   }
 
-  public int getId() {
+  public long getId() {
     return id;
   }
 
-  public String getJsonRPCCommand(int commandId) {
+  public String getJsonRPCCommand(long commandId) {
     id = commandId;
     String cmd = method;
     if (!method.startsWith("RPCServer.")) {
@@ -61,5 +61,21 @@ public class DelveCommand {
     String json = gson.toJson(this);
     method = cmd;
     return json;
+  }
+
+  public String getJsonRPCCommand() {
+    String cmd = method;
+    if (!method.startsWith("RPCServer.")) {
+      method = "RPCServer.".concat(method);
+    }
+    Gson gson = new Gson();
+    String json = gson.toJson(this);
+    method = cmd;
+    return json;
+  }
+
+  public static DelveCommand fromString(String command) {
+    Gson gson = new Gson();
+    return gson.fromJson(command, DelveCommand.class);
   }
 }

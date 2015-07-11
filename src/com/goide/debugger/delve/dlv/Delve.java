@@ -41,7 +41,7 @@ public class Delve {
 
   private String delveHost = "127.0.0.1";
   private int delvePort = 6663;
-  private int commandId = 0;
+  private long commandId = 0;
 
   // Handle to the ASCII character set
   @NotNull private static final Charset ourCharset = Charset.forName("UTF-8");
@@ -53,7 +53,7 @@ public class Delve {
   private List<DelveCommand> myQueuedCommands = new ArrayList<DelveCommand>();
 
   // Commands that have been sent to Delve and are awaiting a response
-  private final Map<Long, DelveCommand> myPendingCommands = new HashMap<Long, DelveCommand>();
+  private final Map<Long, DelveCommand> mySentCommands = new HashMap<Long, DelveCommand>();
 
   /**
    * Interface for callbacks for results from completed Delve commands.
@@ -101,17 +101,10 @@ public class Delve {
       }
 
       Process process = Runtime.getRuntime().exec(commandLine, EnvironmentUtil.getEnvironment(), workingDirectoryFile);
-      InputStream stream = process.getInputStream();
+      InputStream processOutput = process.getInputStream();
+      InputStream processErrorOutput = process.getErrorStream();
 
-      // Queue startup commands
-      // TODO here we should list the version and stuff maybe? If not, skip it
-      DelveCommand command = new DelveCommand().setCommand("State");
-      sendCommand(command, new DelveEventCallback() {
-        @Override
-        public void onDelveCommandCompleted(DelveEvent event) {
-          onStateReady(event);
-        }
-      });
+      myQueuedCommands.add(new DelveCommand().setCommand("State"));
 
       // Save a reference to the process and launch the writer thread
       synchronized (this) {
@@ -119,7 +112,7 @@ public class Delve {
         myWriteThread = new Thread(new Runnable() {
           @Override
           public void run() {
-            processWriteQueue();
+            processCommandsQueue();
           }
         });
         myWriteThread.start();
@@ -127,10 +120,16 @@ public class Delve {
 
       // Start listening for data
       byte[] buffer = new byte[4096];
-      int bytes;
-      while ((bytes = stream.read(buffer)) != -1) {
-        // Process the data
-        // TODO there's no need for a parser, we should simply dump the output to the console
+      byte[] errorBuffer = new byte[4096];
+      int outputBytes, errorBytes = -1;
+      while ((outputBytes = processOutput.read(buffer)) != -1 ||
+             (errorBytes = processErrorOutput.read(errorBuffer)) != -1) {
+        if (outputBytes != -1) {
+          myListener.receiveOutput(new String(buffer));
+        }
+        if (errorBytes != -1) {
+          myListener.receiveErrorOutput(new String(errorBuffer));
+        }
       }
     }
     catch (Throwable ex) {
@@ -138,7 +137,7 @@ public class Delve {
     }
   }
 
-  private void processWriteQueue() {
+  private void processCommandsQueue() {
     try {
       OutputStream stream;
       List<DelveCommand> queuedCommands = new ArrayList<DelveCommand>();
@@ -158,9 +157,8 @@ public class Delve {
           stream = myProcess.getOutputStream();
 
           // Insert the commands into the pending queue
-          long token = myToken;
           for (DelveCommand command : myQueuedCommands) {
-            myPendingCommands.put(token++, command);
+            mySentCommands.put(commandId, command);
           }
 
           // Swap the queues
@@ -174,7 +172,6 @@ public class Delve {
         for (DelveCommand command : queuedCommands) {
           // Construct the message
           myListener.onDelveCommandSent(command);
-
         }
         queuedCommands.clear();
 
@@ -191,30 +188,6 @@ public class Delve {
       myListener.onDelveError(ex);
     }
   }
-
-  /*private void handleRecord(@NotNull DelveRecord record) {
-    switch (record.type) {
-      case Target:
-      case Console:
-      case Log:
-        //handleStreamRecord((DelveMiStreamRecord)record);
-        break;
-
-      case Immediate:
-      case Exec:
-      case Notify:
-      case Status:
-        //handleResultRecord((DelveMiResultRecord)record);
-        break;
-    }
-
-    // If this is the first record we have received we know we are fully started, so notify the
-    // listener
-    if (myFirstRecord) {
-      myFirstRecord = false;
-      myListener.onDelveStarted();
-    }
-  }*/
 
   @Override
   protected synchronized void finalize() throws Throwable {
@@ -238,21 +211,14 @@ public class Delve {
     }
   }
 
-  private void onStateReady(DelveEvent event) {
-    if (event instanceof DelveErrorEvent) {
-      LOG.warn("Failed to get Delve capabilities list: " + ((DelveErrorEvent)event).message);
-      return;
-    }
-    if (!(event instanceof DelveStateEvent)) {
-      LOG.warn("Unexpected event " + event + " received from state request");
-      return;
-    }
-  }
-
-  public synchronized void sendUserCommand(String command) {
-    // TODO implement this
-    // TODO DelveCommand should implement a fromJson() method
-    LOG.error("Received unsupported command: " + command);
+  public synchronized void sendCommand(String command) {
+    DelveCommand cmd = DelveCommand.fromString(command);
+    sendCommand(cmd, new DelveEventCallback() {
+      @Override
+      public void onDelveCommandCompleted(DelveEvent event) {
+        myListener.onDelveEventReceived(event);
+      }
+    });
   }
 
   public synchronized void sendCommand(DelveCommand command, DelveEventCallback callback) {

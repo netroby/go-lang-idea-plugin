@@ -48,4 +48,18 @@ public interface DelveListener {
    * @param event The event.
    */
   void onDelveEventReceived(DelveEvent event);
+
+  /**
+   * Called when we receive output from the process
+   *
+   * @param output process output
+   */
+  void receiveOutput(String output);
+
+  /**
+   * Called when we receive error output from the process
+   *
+   * @param errorOutput process output
+   */
+  void receiveErrorOutput(String errorOutput);
 }

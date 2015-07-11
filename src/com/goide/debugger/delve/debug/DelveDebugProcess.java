@@ -158,7 +158,7 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
    * Called when Delve has started.
    */
   public void onDelveStarted() {
-    // TODO implement support for additional startup commands
+    // TODO Add default start commands here
   }
 
   /**
@@ -167,12 +167,27 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
    * @param command The command that was sent.
    */
   public void onDelveCommandSent(DelveCommand command) {
-    myDelveConsole.getConsole()
+    myDelveConsole
+      .getConsole()
       .print(myTimeFormat.format(new Date())
              + " " + command.getId()
-             + "> " + command
+             + "> " + command.getJsonRPCCommand()
              + "\n",
              ConsoleViewContentType.USER_INPUT);
+  }
+
+  @Override
+  public void receiveOutput(String output) {
+    myDelveConsole
+      .getConsole()
+      .print(output, ConsoleViewContentType.NORMAL_OUTPUT);
+  }
+
+  @Override
+  public void receiveErrorOutput(String errorOutput) {
+    myDelveConsole
+      .getConsole()
+      .print(errorOutput, ConsoleViewContentType.ERROR_OUTPUT);
   }
 
   /**

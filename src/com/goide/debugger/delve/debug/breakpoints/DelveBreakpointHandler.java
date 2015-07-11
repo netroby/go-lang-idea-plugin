@@ -53,7 +53,7 @@ public class DelveBreakpointHandler  extends XBreakpointHandler<XLineBreakpoint<
     Integer number = findBreakpointNumber(breakpoint);
     if (number != null) {
       // Re-enable the breakpoint
-      myDelve.sendUserCommand("-break-enable " + number);
+      myDelve.sendCommand("-break-enable " + number);
     }
     else {
       // Set the breakpoint
@@ -84,14 +84,14 @@ public class DelveBreakpointHandler  extends XBreakpointHandler<XLineBreakpoint<
 
     if (!temporary) {
       // Delete the breakpoint
-      myDelve.sendUserCommand("-break-delete " + number);
+      myDelve.sendCommand("-break-delete " + number);
       synchronized (myBreakpoints) {
         myBreakpoints.remove(number);
       }
     }
     else {
       // Disable the breakpoint
-      myDelve.sendUserCommand("-break-disable " + number);
+      myDelve.sendCommand("-break-disable " + number);
     }
   }
 
