@@ -22,7 +22,10 @@ import com.intellij.util.EnvironmentUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.InputStream;
 import java.net.Socket;
 import java.nio.charset.Charset;
 import java.util.*;
@@ -50,10 +53,7 @@ public class Delve {
   private long myToken = 0;
 
   // Commands that are waiting to be sent
-  private List<DelveCommand> myQueuedCommands = new ArrayList<DelveCommand>();
-
-  // Commands that have been sent to Delve and are awaiting a response
-  private final Map<Long, DelveCommand> mySentCommands = new HashMap<Long, DelveCommand>();
+  private Map<DelveCommand, DelveEventCallback> myQueuedCommands = new HashMap<DelveCommand, DelveEventCallback>();
 
   /**
    * Interface for callbacks for results from completed Delve commands.
@@ -104,7 +104,7 @@ public class Delve {
       InputStream processOutput = process.getInputStream();
       InputStream processErrorOutput = process.getErrorStream();
 
-      myQueuedCommands.add(new DelveCommand().setCommand("State"));
+      myQueuedCommands.put(new DelveCommand().setCommand("State"), null);
 
       // Save a reference to the process and launch the writer thread
       synchronized (this) {
@@ -139,8 +139,7 @@ public class Delve {
 
   private void processCommandsQueue() {
     try {
-      OutputStream stream;
-      List<DelveCommand> queuedCommands = new ArrayList<DelveCommand>();
+      Map<DelveCommand, DelveEventCallback> queuedCommands = new HashMap<DelveCommand, DelveEventCallback>();
       while (true) {
         synchronized (this) {
           // Wait for some data to process
@@ -153,32 +152,20 @@ public class Delve {
             return;
           }
 
-          // Do the processing we need before dropping out of synchronised mode
-          stream = myProcess.getOutputStream();
-
-          // Insert the commands into the pending queue
-          for (DelveCommand command : myQueuedCommands) {
-            mySentCommands.put(commandId, command);
-          }
-
           // Swap the queues
-          List<DelveCommand> tmp = queuedCommands;
+          Map<DelveCommand, DelveEventCallback> tmp = queuedCommands;
           queuedCommands = myQueuedCommands;
           myQueuedCommands = tmp;
         }
 
         // Send the queued commands to Delve
-        StringBuilder sb = new StringBuilder();
-        for (DelveCommand command : queuedCommands) {
-          // Construct the message
+        for (Map.Entry<DelveCommand, DelveEventCallback> pair : queuedCommands.entrySet()) {
+          DelveCommand command = pair.getKey();
+          DelveEventCallback callback = pair.getValue();
           myListener.onDelveCommandSent(command);
+          runCommand(command, callback);
         }
         queuedCommands.clear();
-
-        // Send the messages
-        byte[] message = sb.toString().getBytes(ourCharset);
-        stream.write(message);
-        stream.flush();
       }
     }
     catch (InterruptedException ex) {
@@ -187,6 +174,31 @@ public class Delve {
     catch (Throwable ex) {
       myListener.onDelveError(ex);
     }
+  }
+
+  private void runCommand(DelveCommand command, DelveEventCallback callback) {
+    commandId++;
+    String payload = command.getJsonRPCCommand(commandId);
+
+    String response;
+    try {
+      response = executeDelveRequest(payload);
+    }
+    catch (Exception ex) {
+      LOG.error(ex);
+      return;
+    }
+
+    if (callback == null) return;
+
+    if (command.getCommand().equals("State")) {
+      DelveStateEvent stateEvent = new DelveStateEvent();
+      stateEvent.message = response;
+      callback.onDelveCommandCompleted(stateEvent);
+      return;
+    }
+
+    LOG.error("sending command: " + command + " with callback is not supported yet");
   }
 
   @Override
@@ -222,25 +234,7 @@ public class Delve {
   }
 
   public synchronized void sendCommand(DelveCommand command, DelveEventCallback callback) {
-    commandId++;
-    String payload = command.getJsonRPCCommand(commandId);
-
-    String response = "";
-    try {
-      response = executeDelveRequest(payload);
-    }
-    catch (Exception ex) {
-      LOG.error(ex);
-    }
-
-    if (command.getCommand().equals("State")) {
-      DelveStateEvent stateEvent = new DelveStateEvent();
-      stateEvent.message = response;
-      callback.onDelveCommandCompleted(stateEvent);
-      return;
-    }
-
-    LOG.error("sending command: " + command + " with callback is not supported yet");
+    myQueuedCommands.put(command, callback);
   }
 
   private String executeDelveRequest(String payload) {
