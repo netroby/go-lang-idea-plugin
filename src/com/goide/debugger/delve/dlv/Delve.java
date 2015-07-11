@@ -16,26 +16,19 @@
 
 package com.goide.debugger.delve.dlv;
 
-import com.goide.debugger.delve.dlv.parser.DelveParser;
-import com.goide.debugger.delve.dlv.parser.DelveRecord;
 import com.goide.debugger.delve.dlv.parser.messages.*;
-import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.EnvironmentUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.net.ssl.HttpsURLConnection;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.Socket;
 import java.nio.charset.Charset;
 import java.util.*;
 
 public class Delve {
   private static final Logger LOG = Logger.getInstance(Delve.class);
-  private final String USER_AGENT = ApplicationInfo.getInstance().getFullVersion();
-  private final String BASE_URL = "http://127.0.0.1:6663";
 
   private final Map<String, DelveVariableObject> myVariableObjectsByExpression = new HashMap<String, DelveVariableObject>();
   private final Map<String, DelveVariableObject> myVariableObjectsByName = new HashMap<String, DelveVariableObject>();
@@ -45,7 +38,10 @@ public class Delve {
 
   private final Thread myReadThread;
   private Thread myWriteThread;
-  private boolean myFirstRecord;
+
+  private String delveHost = "127.0.0.1";
+  private int delvePort = 6663;
+  private int commandId = 0;
 
   // Handle to the ASCII character set
   @NotNull private static final Charset ourCharset = Charset.forName("UTF-8");
@@ -54,10 +50,10 @@ public class Delve {
   private long myToken = 0;
 
   // Commands that are waiting to be sent
-  private List<CommandData> myQueuedCommands = new ArrayList<CommandData>();
+  private List<DelveCommand> myQueuedCommands = new ArrayList<DelveCommand>();
 
-  // Commands that have been sent to GDB and are awaiting a response
-  private final Map<Long, CommandData> myPendingCommands = new HashMap<Long, CommandData>();
+  // Commands that have been sent to Delve and are awaiting a response
+  private final Map<Long, DelveCommand> myPendingCommands = new HashMap<Long, DelveCommand>();
 
   /**
    * Interface for callbacks for results from completed Delve commands.
@@ -69,29 +65,6 @@ public class Delve {
      * @param event The event.
      */
     void onDelveCommandCompleted(DelveEvent event);
-  }
-
-  private static class CommandData {
-    /**
-     * The command
-     */
-    @NotNull
-    String command;
-
-    /**
-     * The user provided callback; may be null
-     */
-    @Nullable
-    DelveEventCallback callback;
-
-    CommandData(@NotNull String command) {
-      this.command = command;
-    }
-
-    CommandData(@NotNull String command, @Nullable DelveEventCallback callback) {
-      this.command = command;
-      this.callback = callback;
-    }
   }
 
   public Delve(final String delvePath, final String goFilePath, final String workingDirectory, DelveListener listener) {
@@ -116,7 +89,7 @@ public class Delve {
       // Launch the process
       final String[] commandLine = {
         delvePath,
-        "-addr=\"127.0.0.1:6663\"",
+        "-addr=\"" + delveHost + ":" + delvePort + "\"",
         "-log",
         "-headless",
         "run",
@@ -132,7 +105,8 @@ public class Delve {
 
       // Queue startup commands
       // TODO here we should list the version and stuff maybe? If not, skip it
-      sendCommand("state", new DelveEventCallback() {
+      DelveCommand command = new DelveCommand().setCommand("State");
+      sendCommand(command, new DelveEventCallback() {
         @Override
         public void onDelveCommandCompleted(DelveEvent event) {
           onStateReady(event);
@@ -152,27 +126,11 @@ public class Delve {
       }
 
       // Start listening for data
-      DelveParser parser = new DelveParser();
       byte[] buffer = new byte[4096];
       int bytes;
       while ((bytes = stream.read(buffer)) != -1) {
         // Process the data
-        try {
-          parser.process(buffer, bytes);
-        }
-        catch (IllegalArgumentException ex) {
-          LOG.error("Delve parsing error. Current buffer contents: \"" +
-                    new String(buffer, 0, bytes) + "\"", ex);
-          myListener.onDelveError(ex);
-          return;
-        }
-
-        // Handle the records
-        List<DelveRecord> records = parser.getRecords();
-        for (DelveRecord record : records) {
-          handleRecord(record);
-        }
-        records.clear();
+        // TODO there's no need for a parser, we should simply dump the output to the console
       }
     }
     catch (Throwable ex) {
@@ -183,7 +141,7 @@ public class Delve {
   private void processWriteQueue() {
     try {
       OutputStream stream;
-      List<CommandData> queuedCommands = new ArrayList<CommandData>();
+      List<DelveCommand> queuedCommands = new ArrayList<DelveCommand>();
       while (true) {
         synchronized (this) {
           // Wait for some data to process
@@ -201,26 +159,22 @@ public class Delve {
 
           // Insert the commands into the pending queue
           long token = myToken;
-          for (CommandData command : myQueuedCommands) {
+          for (DelveCommand command : myQueuedCommands) {
             myPendingCommands.put(token++, command);
           }
 
           // Swap the queues
-          List<CommandData> tmp = queuedCommands;
+          List<DelveCommand> tmp = queuedCommands;
           queuedCommands = myQueuedCommands;
           myQueuedCommands = tmp;
         }
 
-        // Send the queued commands to GDB
+        // Send the queued commands to Delve
         StringBuilder sb = new StringBuilder();
-        for (CommandData command : queuedCommands) {
+        for (DelveCommand command : queuedCommands) {
           // Construct the message
-          long token = myToken++;
-          myListener.onDelveCommandSent(command.command, token);
+          myListener.onDelveCommandSent(command);
 
-          sb.append(token);
-          sb.append(command.command);
-          sb.append("\r\n");
         }
         queuedCommands.clear();
 
@@ -238,19 +192,19 @@ public class Delve {
     }
   }
 
-  private void handleRecord(@NotNull DelveRecord record) {
+  /*private void handleRecord(@NotNull DelveRecord record) {
     switch (record.type) {
       case Target:
       case Console:
       case Log:
-        //handleStreamRecord((GdbMiStreamRecord)record);
+        //handleStreamRecord((DelveMiStreamRecord)record);
         break;
 
       case Immediate:
       case Exec:
       case Notify:
       case Status:
-        //handleResultRecord((GdbMiResultRecord)record);
+        //handleResultRecord((DelveMiResultRecord)record);
         break;
     }
 
@@ -260,7 +214,7 @@ public class Delve {
       myFirstRecord = false;
       myListener.onDelveStarted();
     }
-  }
+  }*/
 
   @Override
   protected synchronized void finalize() throws Throwable {
@@ -286,7 +240,7 @@ public class Delve {
 
   private void onStateReady(DelveEvent event) {
     if (event instanceof DelveErrorEvent) {
-      LOG.warn("Failed to get GDB capabilities list: " + ((DelveErrorEvent)event).message);
+      LOG.warn("Failed to get Delve capabilities list: " + ((DelveErrorEvent)event).message);
       return;
     }
     if (!(event instanceof DelveStateEvent)) {
@@ -295,37 +249,25 @@ public class Delve {
     }
   }
 
-  public String sendCommand(String command) {
-    return sendCommand(command, "");
+  public synchronized void sendUserCommand(String command) {
+    // TODO implement this
+    // TODO DelveCommand should implement a fromJson() method
+    LOG.error("Received unsupported command: " + command);
   }
 
-  private String sendCommand(String command, String arguments) {
-    String url = BASE_URL;
-    String requestType = "GET";
-    if ("state".equals(command)) {
-      url += "/state";
-    } else {
-      LOG.error(String.format("Command %s not found", command));
-      return "";
-    }
+  public synchronized void sendCommand(DelveCommand command, DelveEventCallback callback) {
+    commandId++;
+    String payload = command.getJsonRPCCommand(commandId);
 
     String response = "";
     try {
-      if (requestType == "GET") {
-        response = executeGet(url);
-      } else if (requestType == "POST") {
-        response = executePost(url, arguments);
-      }
-    } catch (Exception ex) {
+      response = executeDelveRequest(payload);
+    }
+    catch (Exception ex) {
       LOG.error(ex);
     }
 
-    return response;
-  }
-
-  public synchronized void sendCommand(String command, DelveEventCallback callback) {
-    if (command.equals("state")) {
-      String response = sendCommand("state", "");
+    if (command.getCommand().equals("State")) {
       DelveStateEvent stateEvent = new DelveStateEvent();
       stateEvent.message = response;
       callback.onDelveCommandCompleted(stateEvent);
@@ -335,72 +277,35 @@ public class Delve {
     LOG.error("sending command: " + command + " with callback is not supported yet");
   }
 
-  private String executeGet(String url) throws Exception {
-    URL obj = new URL(url);
-    HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-    con.setRequestMethod("GET");
-    con.setRequestProperty("User-Agent", USER_AGENT);
-    int responseCode = con.getResponseCode();
-    LOG.info("\nSending 'GET' request to URL : " + url);
-    LOG.info("Response Code : " + responseCode);
+  private String executeDelveRequest(String payload) {
+    Socket dlvClient;
+    DataOutputStream sendData;
+    DataInputStream getData;
 
-    if (responseCode != 200) {
-      throw new Exception("Unexpected response received");
-    }
+    String response = "";
 
-    String inputLine;
-    StringBuilder response = new StringBuilder();
-
-    BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
     try {
-      while ((inputLine = in.readLine()) != null) {
-        response.append(inputLine);
+      dlvClient = new Socket(delveHost, delvePort);
+      sendData = new DataOutputStream(dlvClient.getOutputStream());
+      getData = new DataInputStream(dlvClient.getInputStream());
+
+      sendData.writeBytes(payload);
+      //sendData.writeBytes();
+
+      String responseLine;
+      while ((responseLine = getData.readLine()) != null) {
+        response += responseLine;
+        break;
       }
-    } finally {
-      in.close();
+
+      getData.close();
+      sendData.close();
+      dlvClient.close();
+    }
+    catch (Exception ignored) {
     }
 
-    return response.toString();
-  }
-
-  private String executePost(String url, String payload) throws Exception {
-    URL obj = new URL(url);
-    HttpsURLConnection con = (HttpsURLConnection) obj.openConnection();
-    con.setRequestMethod("POST");
-    con.setRequestProperty("User-Agent", USER_AGENT);
-    con.setRequestProperty("Accept-Language", "en-US,en;q=0.5");
-
-    // Send post request
-    con.setDoOutput(true);
-    DataOutputStream wr = new DataOutputStream(con.getOutputStream());;
-    try {
-      wr.writeBytes(payload);
-      wr.flush();
-    } finally {
-      wr.close();
-    }
-
-    int responseCode = con.getResponseCode();
-    LOG.info("\nSending 'POST' request to URL : " + url);
-    LOG.info("Post parameters : " + payload);
-    LOG.info("Response Code : " + responseCode);
-
-    if (responseCode != 200) {
-      throw new Exception("Unexpected response received");
-    }
-
-    String inputLine;
-    StringBuilder response = new StringBuilder();
-    BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-    try {
-      while ((inputLine = in.readLine()) != null) {
-        response.append(inputLine);
-      }
-    } finally {
-      in.close();
-    }
-
-    return response.toString();
+    return response;
   }
 
   public void evaluateExpression(int thread, int frame, @NotNull final String expression,
@@ -410,7 +315,11 @@ public class Delve {
     // Create a new variable object if necessary
     DelveVariableObject variableObject = myVariableObjectsByExpression.get(expression);
     if (variableObject == null) {
-      String command = "-var-create --thread " + thread + " --frame " + frame + " - @ " + expression;
+      DelveCommand command = new DelveCommand()
+        .setCommand("--var-create")
+        .addParam("--thread " + thread)
+        .addParam("--frame " + frame)
+        .addParam("- @ " + expression);
       sendCommand(command, new DelveEventCallback() {
         @Override
         public void onDelveCommandCompleted(DelveEvent event) {
@@ -420,22 +329,29 @@ public class Delve {
     }
 
     // Update existing variable objects
-    sendCommand("-var-update --thread " + thread + " --frame " + frame + " --all-values *",
-                new DelveEventCallback() {
-                  @Override
-                  public void onDelveCommandCompleted(DelveEvent event) {
-                    HashSet<String> expressions = new HashSet<String>();
-                    expressions.add(expression);
-                    onDelveVariableObjectsUpdated(event, expressions, callback);
-                  }
-                });
+    DelveCommand command = new DelveCommand()
+      .setCommand("-var-update")
+      .addParam("--thread " + thread)
+      .addParam("--frame " + frame)
+      .addParam("--all-values *");
+    sendCommand(command, new DelveEventCallback() {
+      @Override
+      public void onDelveCommandCompleted(DelveEvent event) {
+        HashSet<String> expressions = new HashSet<String>();
+        expressions.add(expression);
+        onDelveVariableObjectsUpdated(event, expressions, callback);
+      }
+    });
   }
 
   public void getVariablesForFrame(final int thread, final int frame,
                                    @NotNull final DelveEventCallback callback) {
     // Get a list of local variables
-    String command = "-stack-list-variables --thread " + thread + " --frame " + frame +
-                     " --no-values";
+    DelveCommand command = new DelveCommand()
+      .setCommand("-stack-list-variables")
+      .addParam("--thread " + thread)
+      .addParam("--frame " + frame)
+      .addParam("--no-values");
     sendCommand(command, new DelveEventCallback() {
       @Override
       public void onDelveCommandCompleted(DelveEvent event) {
@@ -445,7 +361,7 @@ public class Delve {
   }
 
   private void onDelveVariablesReady(DelveEvent event, int thread, int frame,
-                                   @NotNull final DelveEventCallback callback) {
+                                     @NotNull final DelveEventCallback callback) {
     if (event instanceof DelveErrorEvent) {
       callback.onDelveCommandCompleted(event);
       return;
@@ -464,8 +380,12 @@ public class Delve {
     for (final String variable : variables.variables.keySet()) {
       DelveVariableObject variableObject = myVariableObjectsByExpression.get(variable);
       if (variableObject == null) {
-        String command = "-var-create --thread " + thread + " --frame " + frame + " - @ " +
-                         variable;
+        DelveCommand command = new DelveCommand()
+          .setCommand("-var-create")
+          .addParam("--thread " + thread)
+          .addParam("--frame " + frame)
+          .addParam("- @ " + variable);
+
         sendCommand(command, new DelveEventCallback() {
           @Override
           public void onDelveCommandCompleted(DelveEvent event) {
@@ -476,17 +396,20 @@ public class Delve {
     }
 
     // Update any existing variable objects
-    sendCommand("-var-update --thread " + thread + " --frame " + frame + " --all-values *",
-                new DelveEventCallback() {
-                  @Override
-                  public void onDelveCommandCompleted(DelveEvent event) {
-                    onDelveVariableObjectsUpdated(event, variables.variables.keySet(), callback);
-                  }
-                });
+    DelveCommand command = new DelveCommand()
+      .setCommand("-var-update")
+      .addParam("--thread " + thread)
+      .addParam("--frame " + frame)
+      .addParam("--all-values *");
+    sendCommand(command, new DelveEventCallback() {
+      @Override
+      public void onDelveCommandCompleted(DelveEvent event) {
+        onDelveVariableObjectsUpdated(event, variables.variables.keySet(), callback);
+      }
+    });
   }
 
-  private void onDelveNewVariableObjectReady(DelveEvent event, String expression,
-                                           @NotNull DelveEventCallback callback) {
+  private void onDelveNewVariableObjectReady(DelveEvent event, String expression, @NotNull DelveEventCallback callback) {
     if (event instanceof DelveErrorEvent) {
       callback.onDelveCommandCompleted(event);
       return;
@@ -517,12 +440,12 @@ public class Delve {
   /**
    * Callback function for when Delve has responded to our variable objects update request.
    *
-   * @param event     The event.
    * @param variables The variables the user requested.
    * @param callback  The user-provided callback function.
+   * @pa\ram event     The event.
    */
   private void onDelveVariableObjectsUpdated(DelveEvent event, @NotNull Set<String> variables,
-                                           @NotNull DelveEventCallback callback) {
+                                             @NotNull DelveEventCallback callback) {
     if (event instanceof DelveErrorEvent) {
       callback.onDelveCommandCompleted(event);
       return;

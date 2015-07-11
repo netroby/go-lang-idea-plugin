@@ -18,6 +18,7 @@ package com.goide.debugger.delve.debug;
 
 import com.goide.GoIcons;
 import com.goide.debugger.delve.dlv.Delve;
+import com.goide.debugger.delve.dlv.DelveCommand;
 import com.goide.debugger.delve.dlv.parser.messages.DelveErrorEvent;
 import com.goide.debugger.delve.dlv.parser.messages.DelveEvent;
 import com.goide.debugger.delve.dlv.parser.messages.DelveVariableObject;
@@ -78,7 +79,10 @@ public class DelveValue extends XValue {
     }
 
     // Get the children from Delve
-    myDelve.sendCommand("-var-list-children --all-values " + myVariableObject.name, new Delve.DelveEventCallback() {
+    DelveCommand command = new DelveCommand()
+      .setCommand("-var-list-children")
+      .addParam("--all-values " + myVariableObject.name);
+    myDelve.sendCommand(command, new Delve.DelveEventCallback() {
       @Override
       public void onDelveCommandCompleted(DelveEvent event) {
         onDelveChildrenReady(event, node);
@@ -113,7 +117,10 @@ public class DelveValue extends XValue {
   }
 
   private void handleGoString(@NotNull final XValueNode node) {
-    myDelve.sendCommand("-var-list-children --all-values " + myVariableObject.name, new Delve.DelveEventCallback() {
+    DelveCommand command = new DelveCommand()
+      .setCommand("-var-list-children")
+      .addParam("--all-values " + myVariableObject.name);
+    myDelve.sendCommand(command, new Delve.DelveEventCallback() {
       @Override
       public void onDelveCommandCompleted(DelveEvent event) {
         onGoDelveStringReady(node, event);

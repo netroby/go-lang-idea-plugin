@@ -38,10 +38,9 @@ public interface DelveListener {
   /**
    * Called whenever a command is sent to Delve.
    *
-   * @param command The command that was sent.
-   * @param token   The token the command was sent with.
+   * @param command The command that we've sent to delve
    */
-  void onDelveCommandSent(String command, long token);
+  void onDelveCommandSent(DelveCommand command);
 
   /**
    * Called when an event is received from Delve.

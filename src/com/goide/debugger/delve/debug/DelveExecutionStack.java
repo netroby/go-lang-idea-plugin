@@ -17,6 +17,7 @@
 package com.goide.debugger.delve.debug;
 
 import com.goide.debugger.delve.dlv.Delve;
+import com.goide.debugger.delve.dlv.DelveCommand;
 import com.goide.debugger.delve.dlv.parser.messages.*;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.xdebugger.frame.XExecutionStack;
@@ -73,7 +74,7 @@ public class DelveExecutionStack extends XExecutionStack {
   @Override
   public void computeStackFrames(final int firstFrameIndex, @NotNull final XStackFrameContainer container) {
     // Just get the whole stack
-    String command = "-stack-list-frames";
+    DelveCommand command = new DelveCommand().setCommand("-stack-list-frames");
     myDelve.sendCommand(command, new Delve.DelveEventCallback() {
       @Override
       public void onDelveCommandCompleted(DelveEvent event) {

@@ -49,13 +49,13 @@ public class DelveConsoleView {
         String command = event.getActionCommand();
         if (command.isEmpty() && myLastCommand != null) {
           // Resend the last command
-          myDelve.sendCommand(myLastCommand);
+          myDelve.sendUserCommand(myLastCommand);
         }
         else if (!command.isEmpty()) {
           // Send the command to Delve
           myLastCommand = command;
           myPrompt.setText("");
-          myDelve.sendCommand(command);
+          myDelve.sendUserCommand(command);
         }
       }
     });

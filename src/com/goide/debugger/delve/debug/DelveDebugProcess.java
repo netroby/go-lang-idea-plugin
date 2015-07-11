@@ -19,6 +19,7 @@ package com.goide.debugger.delve.debug;
 import com.goide.debugger.delve.debug.breakpoints.DelveBreakpointHandler;
 import com.goide.debugger.delve.debug.breakpoints.DelveBreakpointProperties;
 import com.goide.debugger.delve.dlv.Delve;
+import com.goide.debugger.delve.dlv.DelveCommand;
 import com.goide.debugger.delve.dlv.DelveListener;
 import com.goide.debugger.delve.dlv.parser.messages.*;
 import com.goide.debugger.delve.run.DelveExecutionResult;
@@ -126,8 +127,8 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
       @Override
       public void registerAdditionalContent(@NotNull RunnerLayoutUi ui) {
         Content delveConsoleContent = ui.createContent("DelveConsoleContent",
-                                                     myDelveConsole.getComponent(), "Delve Console", AllIcons.Debugger.Console,
-                                                     myDelveConsole.getPreferredFocusableComponent());
+                                                       myDelveConsole.getComponent(), "Delve Console", AllIcons.Debugger.Console,
+                                                       myDelveConsole.getPreferredFocusableComponent());
         delveConsoleContent.setCloseable(false);
 
         // Create the actions
@@ -137,7 +138,7 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
           consoleActions.add(action);
         }
         delveConsoleContent.setActions(consoleActions, ActionPlaces.DEBUGGER_TOOLBAR,
-                                     myDelveConsole.getConsole().getPreferredFocusableComponent());
+                                       myDelveConsole.getConsole().getPreferredFocusableComponent());
 
         ui.addContent(delveConsoleContent, 2, PlaceInGrid.bottom, false);
       }
@@ -164,11 +165,14 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
    * Called whenever a command is sent to Delve.
    *
    * @param command The command that was sent.
-   * @param token   The token the command was sent with.
    */
-  public void onDelveCommandSent(String command, long token) {
-    myDelveConsole.getConsole().print(myTimeFormat.format(new Date()) + " " + token + "> " +
-                                    command + "\n", ConsoleViewContentType.USER_INPUT);
+  public void onDelveCommandSent(DelveCommand command) {
+    myDelveConsole.getConsole()
+      .print(myTimeFormat.format(new Date())
+             + " " + command.getId()
+             + "> " + command
+             + "\n",
+             ConsoleViewContentType.USER_INPUT);
   }
 
   /**
@@ -194,7 +198,9 @@ public class DelveDebugProcess extends XDebugProcess implements DelveListener {
    */
   private void onDelveStoppedEvent(@NotNull final DelveStoppedEvent event) {
     // Get information about the threads
-    myDelve.sendCommand("-thread-info", new Delve.DelveEventCallback() {
+    DelveCommand command = new DelveCommand().setCommand("-thread-info");
+
+    myDelve.sendCommand(command, new Delve.DelveEventCallback() {
       @Override
       public void onDelveCommandCompleted(DelveEvent threadInfoEvent) {
         onDelveThreadInfoReady(threadInfoEvent, event);

@@ -17,6 +17,7 @@
 package com.goide.debugger.delve.debug;
 
 import com.goide.debugger.delve.dlv.Delve;
+import com.goide.debugger.delve.dlv.DelveCommand;
 import com.goide.debugger.delve.dlv.parser.messages.DelveDoneEvent;
 import com.goide.debugger.delve.dlv.parser.messages.DelveErrorEvent;
 import com.goide.debugger.delve.dlv.parser.messages.DelveEvent;
@@ -39,7 +40,7 @@ public class DelveValueModifier extends XValueModifier {
   /**
    * Constructor.
    *
-   * @param delve            Handle to the delve instance.
+   * @param delve          Handle to the delve instance.
    * @param variableObject The variable object to modify.
    */
   public DelveValueModifier(Delve delve, DelveVariableObject variableObject) {
@@ -56,13 +57,15 @@ public class DelveValueModifier extends XValueModifier {
   @Override
   public void setValue(@NotNull String expression, @NotNull final XModificationCallback callback) {
     // TODO: Format the expression properly
-    myDelve.sendCommand("-var-assign " + myVariableObject.name + " " + expression,
-                          new Delve.DelveEventCallback() {
-                            @Override
-                            public void onDelveCommandCompleted(DelveEvent event) {
-                              onDelveNewValueReady(event, callback);
-                            }
-                          });
+    DelveCommand command = new DelveCommand()
+      .setCommand("-var-assign")
+      .addParam(myVariableObject.name + " " + expression);
+    myDelve.sendCommand(command, new Delve.DelveEventCallback() {
+      @Override
+      public void onDelveCommandCompleted(DelveEvent event) {
+        onDelveNewValueReady(event, callback);
+      }
+    });
   }
 
   /**

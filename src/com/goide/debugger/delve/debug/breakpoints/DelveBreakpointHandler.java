@@ -18,6 +18,7 @@ package com.goide.debugger.delve.debug.breakpoints;
 
 import com.goide.debugger.delve.debug.DelveDebugProcess;
 import com.goide.debugger.delve.dlv.Delve;
+import com.goide.debugger.delve.dlv.DelveCommand;
 import com.goide.debugger.delve.dlv.parser.messages.DelveBreakpoint;
 import com.goide.debugger.delve.dlv.parser.messages.DelveErrorEvent;
 import com.goide.debugger.delve.dlv.parser.messages.DelveEvent;
@@ -52,13 +53,18 @@ public class DelveBreakpointHandler  extends XBreakpointHandler<XLineBreakpoint<
     Integer number = findBreakpointNumber(breakpoint);
     if (number != null) {
       // Re-enable the breakpoint
-      myDelve.sendCommand("-break-enable " + number);
+      myDelve.sendUserCommand("-break-enable " + number);
     }
     else {
       // Set the breakpoint
       XSourcePosition sourcePosition = breakpoint.getSourcePosition();
-      String command = "-break-insert -f " + sourcePosition.getFile().getPath() + ":" +
-                       (sourcePosition.getLine() + 1);
+      if (sourcePosition == null) {
+        return;
+      }
+
+      DelveCommand command = new DelveCommand()
+        .setCommand("-break-insert")
+        .addParam("-f " + sourcePosition.getFile().getPath() + ":" + (sourcePosition.getLine() + 1));
       myDelve.sendCommand(command, new Delve.DelveEventCallback() {
         @Override
         public void onDelveCommandCompleted(DelveEvent event) {
@@ -78,14 +84,14 @@ public class DelveBreakpointHandler  extends XBreakpointHandler<XLineBreakpoint<
 
     if (!temporary) {
       // Delete the breakpoint
-      myDelve.sendCommand("-break-delete " + number);
+      myDelve.sendUserCommand("-break-delete " + number);
       synchronized (myBreakpoints) {
         myBreakpoints.remove(number);
       }
     }
     else {
       // Disable the breakpoint
-      myDelve.sendCommand("-break-disable " + number);
+      myDelve.sendUserCommand("-break-disable " + number);
     }
   }
 
