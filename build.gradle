@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov, Mihai Toader, Florin Patan
+ * Copyright 2013-2015 Sergey Ignatov, Alexander Zolotov
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,123 +14,137 @@
  * limitations under the License.
  */
 
+// Local testing:
+
+//buildscript {
+//    repositories {
+//        flatDir {
+//            dirs "/Users/zolotov/dev/idea-gradle-plugin/build/libs/"
+//        }
+//    }
+//    dependencies {
+//        classpath group: 'org.jetbrains', name: 'gradle-intellij-plugin', version: '0.0.10'
+//    }
+//}
+
 plugins {
-  id 'org.jetbrains.intellij' version "0.0.8"
-  id "de.undercouch.download" version "1.2"
+    id 'org.jetbrains.intellij' version "0.0.9"
+    id "de.undercouch.download" version "1.2"
 }
+
 version = '0.9.' + System.properties.getProperty('build.number', 'SNAPSHOT')
+def java_version = '1.6'
 
 allprojects {
-  apply plugin: 'org.jetbrains.intellij'
-  sourceCompatibility = 1.6
-  targetCompatibility = 1.6
+    apply plugin: 'java'
+    sourceCompatibility = java_version
+    targetCompatibility = java_version
 
-  intellij {
-    version '14.1'
-    plugins 'coverage'
-  }
+    sourceSets {
+        main {
+            java.srcDirs 'src', 'gen'
+            resources.srcDir 'resources'
+        }
+        test {
+            java.srcDir 'tests'
+        }
+    }
 
-  sourceSets {
-    main {
-      java.srcDirs 'src', 'gen'
-      resources.srcDir 'resources'
+    apply plugin: 'org.jetbrains.intellij'
+    intellij {
+        version '14.1'
+        plugins 'coverage'
     }
-    test {
-      java.srcDir 'tests'
-    }
-  }
 }
 
+apply plugin: 'idea'
+idea {
+    project {
+        jdkName = java_version
+        languageLevel = java_version
+    }
+    module {
+        generatedSourceDirs += file('gen')
+        excludeDirs += files('config-test', 'system-test')
+    }
+}
+
+
 dependencies {
-  compile project(':utils'), project(':google-app-engine'), project(':google-app-engine-yaml')
+    compile project(':utils'), project(':google-app-engine'), project(':google-app-engine:google-app-engine-yaml')
 }
 
 test {
-  maxHeapSize = '512m'
-  minHeapSize = '256m'
-  enableAssertions = true
-  jvmArgs '-XX:MaxPermSize=250m', '-Didea.system.path=system-test', '-Didea.config.path=config-test'
+    maxHeapSize = '512m'
+    minHeapSize = '256m'
+    enableAssertions = true
+    jvmArgs '-XX:MaxPermSize=250m', '-Didea.system.path=system-test', '-Didea.config.path=config-test'
 
-  useJUnit {
-    excludeCategories 'com.goide.categories.Performance'
-  }
-  testLogging {
-    exceptionFormat = 'full'
-  }
+    useJUnit {
+        excludeCategories 'com.goide.categories.Performance'
+    }
+    testLogging {
+        exceptionFormat = 'full'
+    }
 }
 
 task preparePerformanceTestData << {
-  downloadAndUnzip('https://storage.googleapis.com/golang/go1.4.2.src.tar.gz', 'go', 'go')
-  downloadAndUnzip('https://github.com/docker/docker/archive/v1.5.0.tar.gz', 'docker-1.5.0', 'docker')
+    downloadAndUnzip('https://storage.googleapis.com/golang/go1.4.2.src.tar.gz', 'go', 'go')
+    downloadAndUnzip('https://github.com/docker/docker/archive/v1.5.0.tar.gz', 'docker-1.5.0', 'docker')
 }
 
-task performanceTest(type: Test, dependsOn: [classes, testClasses, preparePerformanceTestData]) {
-  maxHeapSize = '512m'
-  minHeapSize = '256m'
-  enableAssertions = true
-  jvmArgs '-XX:MaxPermSize=250m', '-Didea.system.path=system-test', '-Didea.config.path=config-test'
+task performanceTest(type: Test, group: 'Verification', dependsOn: [classes, testClasses, preparePerformanceTestData]) {
+    maxHeapSize = '512m'
+    minHeapSize = '256m'
+    enableAssertions = true
+    jvmArgs '-XX:MaxPermSize=250m', '-Didea.system.path=system-test', '-Didea.config.path=config-test'
 
-  useJUnit {
-    includeCategories 'com.goide.categories.Performance'
-    reports.html.destination = "$buildDir/reports/performanceTests"
-  }
-  testLogging {
-    exceptionFormat = 'full'
-  }
+    useJUnit {
+        includeCategories 'com.goide.categories.Performance'
+        reports.html.destination = "$buildDir/reports/performanceTests"
+    }
+    testLogging {
+        exceptionFormat = 'full'
+    }
 }
 check.dependsOn performanceTest
 
 private void downloadAndUnzip(url, sourceDir, targetDir) {
-  def testDataPath = "${projectDir}/testData/performance/"
-  def markerFile = file("${testDataPath}/${targetDir}/markerFile")
-  def tmpPath = "${testDataPath}/tmp/"
-  def tar = file("${tmpPath}/${targetDir}.tar.gz")
-  if (!markerFile.exists()) {
-    download {
-      src url
-      dest tar
+    def testDataPath = "${projectDir}/testData/performance/"
+    def markerFile = file("${testDataPath}/${targetDir}/markerFile")
+    def tmpPath = "${testDataPath}/tmp/"
+    def tar = file("${tmpPath}/${targetDir}.tar.gz")
+    if (!markerFile.exists()) {
+        download {
+            src url
+            dest tar
+        }
+        copy {
+            from tarTree(tar)
+            into tmpPath
+        }
+        copy {
+            from "${tmpPath}/${sourceDir}"
+            into "${testDataPath}/${targetDir}"
+        }
+        markerFile.createNewFile()
     }
-    copy {
-      from tarTree(tar)
-      into tmpPath
-    }
-    copy {
-      from "${tmpPath}/${sourceDir}"
-      into "${testDataPath}/${targetDir}"
-    }
-    markerFile.createNewFile()
-  }
-  delete file(tmpPath)
+    delete file(tmpPath)
 }
 
-// todo: extract to plugin
 jar {
-  archiveName = 'intellij-go.jar'
-  description = "Set plugin version in plugin.xml"
-  doFirst {
-    sourceSets.main.output.files.each { file ->
-      fileTree(file).include("META-INF/plugin.xml").each {
-        def pluginXml = new XmlParser().parse(it)
-        pluginXml.version.each {
-          it.value = version
-        }
-
-        def printer = new XmlNodePrinter(new PrintWriter(new FileWriter(it)))
-        printer.preserveWhitespace = true
-        printer.print(pluginXml)
-      }
-    }
-  }
+    archiveName = 'intellij-go.jar'
+    description = "Set plugin version in plugin.xml"
 }
 
 apply plugin: 'distribution'
 distZip.dependsOn jar
 distributions {
-  main {
-    baseName = 'Go'
-    contents {
-      from allprojects.jar.archivePath
-      into "/lib"
+    main {
+        baseName = 'Go'
+        contents {
+            from allprojects.jar.archivePath
+            into "/lib"
+        }
     }
-  }
 }
