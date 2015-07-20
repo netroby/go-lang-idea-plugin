@@ -23,12 +23,12 @@
 //        }
 //    }
 //    dependencies {
-//        classpath group: 'org.jetbrains', name: 'gradle-intellij-plugin', version: '0.0.10'
+//        classpath group: 'org.jetbrains', name: 'intellij-gradle-plugin', version: '0.0.10'
 //    }
 //}
 
 plugins {
-    id 'org.jetbrains.intellij' version "0.0.9"
+    id 'org.jetbrains.intellij' version "0.0.10"
     id "de.undercouch.download" version "1.2"
 }
 
@@ -52,7 +52,7 @@ allprojects {
 
     apply plugin: 'org.jetbrains.intellij'
     intellij {
-        version '14.1'
+        version '141.1531.2'
         plugins 'coverage'
     }
 }
