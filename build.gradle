@@ -54,6 +54,7 @@ allprojects {
     intellij {
         version '141.1531.2'
         archiveName 'Go'
+        plugins 'coverage'
     }
 }
 
